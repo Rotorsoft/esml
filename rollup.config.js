@@ -4,7 +4,7 @@ import typescript from "@rollup/plugin-typescript";
 export default {
   input: "src/index.ts",
   output: {
-    file: "app/esml.js",
+    file: "docs/esml.js",
     format: "umd",
     name: "esml",
     globals: { graphre: "graphre" },

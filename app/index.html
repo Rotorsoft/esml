@@ -1,0 +1,74 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>esml</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="shortcut icon" href="favicon.png">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css"
+      integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat&family=Handlee&family=Inconsolata:wght@300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.2/codemirror.min.css">
+    <style>
+      .CodeMirror {
+        height: 100%; /* Set the height of the CodeMirror instance to 100% */
+        font-size: 14px;
+      }
+      .cm-error {
+        text-decoration-style: wavy;
+        text-decoration-color: red;
+        text-decoration-line: underline;
+      }
+      #parse-error {
+        font-family: monospace;
+        font-size: 12px;
+        background-color: rgb(232, 228, 171);
+        color: rgb(93, 11, 11);
+      }
+      #coords {
+        font-family: monospace;
+        font-size: 10px;
+        color: rgb(197, 191, 191);
+      }
+      </style>
+  </head>
+  <body>
+    <div class="row justify-content-end">
+      <div class="col-auto position-fixed bottom-0 end-0">
+        <span id="coords" class="badge bg-transparent">Coords</span>
+        <span id="zoom" class="badge bg-transparent text-muted">Zoom</span>
+        <button id="fit" type="button" class="btn" title="Fit to screen ">
+          <i class="bi bi-arrows-fullscreen"></i>
+        </button>
+      </div>
+    </div>
+    <div class="row m-0 p-2 w-100" id="parse-error" style="display: none;"></div>
+    <div class="row m-0 p-0 w-100 h-100 overflow-hidden">
+        <div class="col-3 h-100 m-0 p-0 overflow-auto" id="codemirror">
+            <div class="row"><textarea id="code"></textarea></div>
+        </div>
+        <div class="col-9 h-100 bg-light m-0 p-0 overflow-auto" id="container">
+            <svg id="svg"></svg>
+        </div>
+    </div>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.2/codemirror.min.js"></script>
+    <script src="graphre.js"></script>
+    <script src="esml.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -9,8 +9,6 @@ env:
   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
   GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
   NPM_REGISTRY: "registry.npmjs.org"
-  USER: "rotorsoft"
-  EMAIL: "rotorsoft@outlook.com"
 
 jobs:
   ci:
@@ -71,6 +69,8 @@ jobs:
           npm --no-git-tag-version version "${{ steps.analyze.outputs.next-version }}"
 
           echo ">>> committing..."
+          git config --global user.email "rotorsoft@outlook.com"
+          git config --global user.name "rotorsoft"
           git add -A .
           HUSKY=0 git commit -am "${msg}"
 

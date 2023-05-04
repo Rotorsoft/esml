@@ -42,6 +42,7 @@ jobs:
           node-version: 18.x
 
       - name: analyze
+        id: analyze
         uses: rotorsoft/semrel-analyze@v2
         with:
           package: "@rotorsoft/esml"

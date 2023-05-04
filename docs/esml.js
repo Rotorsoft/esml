@@ -23,23 +23,36 @@
 
     var graphre__namespace = /*#__PURE__*/_interopNamespaceDefault(graphre);
 
+    const square = (node, config) => {
+        node.x = 0;
+        node.y = 0;
+        node.width = config.scale;
+        node.height = config.scale;
+        node.offset = { x: 8, y: 8 };
+    };
+    const rectangle = (node, config) => {
+        node.x = 0;
+        node.y = 0;
+        node.width = config.scale * 2;
+        node.height = config.scale;
+        node.offset = { x: 8, y: 8 };
+    };
+
+    const Types = [
+        "context",
+        "actor",
+        "aggregate",
+        "system",
+        "projector",
+        "policy",
+        "process",
+    ];
+    const Edges = ["invokes", "handles", "emits", "includes"];
+    const Keywords = [...Types, ...Edges];
+
     class Actor {
-        constructor() {
-            this.padding = 0;
-        }
         grammar() {
             return { invokes: "command" };
-        }
-        get style() {
-            return {
-                body: {
-                    bold: false,
-                    italic: false,
-                    center: true,
-                    color: "#555555",
-                },
-                fill: "white",
-            };
         }
         edge(node, message) {
             return {
@@ -55,86 +68,12 @@
             node.width = config.scale / 2;
             node.height = config.scale / 2;
             node.offset = { x: 8, y: config.scale / 3 };
-            this.padding = config.padding;
-        }
-        render(node, g, x, y) {
-            const a = this.padding / 2;
-            const yp = y + a * 4;
-            const faceCenter = { x: node.x, y: yp - a };
-            g.circle(faceCenter, a).stroke();
-            g.path([
-                { x: node.x, y: yp },
-                { x: node.x, y: yp + 2 * a },
-            ]).stroke();
-            g.path([
-                { x: node.x - a, y: yp + a },
-                { x: node.x + a, y: yp + a },
-            ]).stroke();
-            g.path([
-                { x: node.x - a, y: yp + a + this.padding },
-                { x: node.x, y: yp + this.padding },
-                { x: node.x + a, y: yp + a + this.padding },
-            ]).stroke();
         }
     }
-
-    const Types = [
-        "context",
-        "actor",
-        "aggregate",
-        "system",
-        "projector",
-        "policy",
-        "process",
-    ];
-    const Messages = ["command", "event"];
-    [...Types, ...Messages];
-    const Edges = ["invokes", "handles", "emits", "includes"];
-    const Keywords = [...Types, ...Edges];
-    const square = (node, config) => {
-        node.x = 0;
-        node.y = 0;
-        node.width = config.scale;
-        node.height = config.scale;
-        node.offset = { x: 8, y: 8 };
-    };
-    const rectangle = (node, config) => {
-        node.x = 0;
-        node.y = 0;
-        node.width = config.scale * 2;
-        node.height = config.scale;
-        node.offset = { x: 8, y: 8 };
-    };
-    const COLORS = {
-        context: "white",
-        actor: "white",
-        aggregate: "#fffabb",
-        system: "#eca0c3",
-        projector: "#d5f694",
-        policy: "#c595cd",
-        process: "#c595cd",
-        command: "#7adcfb",
-        event: "#ffaa61",
-    };
-    const noteStyle = (visual) => ({
-        body: {
-            bold: false,
-            italic: false,
-            center: true,
-            color: "#555555",
-        },
-        fill: COLORS[visual],
-    });
-    const noteRender = (node, g, x, y) => {
-        g.rect(x, y, node.width, node.height, "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));").fill();
-    };
 
     class Aggregate {
         grammar() {
             return { handles: "command", emits: "event" };
-        }
-        get style() {
-            return noteStyle("aggregate");
         }
         edge(node, message) {
             return message.visual === "command"
@@ -153,9 +92,6 @@
         }
         layout(node, config) {
             return rectangle(node, config);
-        }
-        render(node, g, x, y) {
-            return noteRender(node, g, x, y);
         }
     }
 
@@ -178,27 +114,32 @@
             output.push(min + ((max - min) * i) / (count - 1));
         return output;
     };
-
-    const layout = (node, config) => {
-        const { layout } = visual(node.visual);
-        layout(node, config);
-        node.width = node.width + 2 * config.edgeMargin;
-        node.height = node.height + 2 * config.edgeMargin;
+    const debounce = (func, delay) => {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                func.apply(this, args);
+            }, delay);
+        };
     };
+    class EventEmitter {
+        constructor() {
+            this.listeners = new Map();
+        }
+        on(eventName, listener) {
+            !this.listeners.has(eventName) && this.listeners.set(eventName, new Set());
+            this.listeners.get(eventName).add(listener);
+        }
+        emit(eventName, ...args) {
+            this.listeners.has(eventName) &&
+                this.listeners.get(eventName).forEach((listener) => listener(...args));
+        }
+    }
+
     class Context {
         grammar() {
             return { includes: "artifacts" };
-        }
-        get style() {
-            return {
-                body: {
-                    bold: true,
-                    italic: false,
-                    center: false,
-                    color: "#CCCCCC",
-                },
-                fill: "white",
-            };
         }
         edge(node, message, dashed = false, arrow = true) {
             return { start: node.id, end: message.id, dashed, arrow };
@@ -216,7 +157,11 @@
                     rankdir: "LR",
                     ranker: "network-simplex",
                 });
-                node.nodes.forEach((n) => layout(n, config));
+                node.nodes.forEach((n) => {
+                    (n.artifact?.layout || square)(n, config);
+                    n.width = n.width + 2 * config.edgeMargin;
+                    n.height = n.height + 2 * config.edgeMargin;
+                });
                 node.nodes.forEach(({ id, width, height }) => g.setNode(id, { width, height }));
                 const edges = [...node.edges.values()].map((edge, index) => {
                     g.setEdge(edge.start, edge.end, {}, `${index}`);
@@ -261,17 +206,11 @@
                 node.offset = { x: config.padding, y: config.padding };
             }
         }
-        render(node, g, x, y) {
-            node.id && g.rect(x, y, node.width, node.height).fillAndStroke();
-        }
     }
 
     class Policy {
         grammar() {
             return { handles: "event", invokes: "command" };
-        }
-        get style() {
-            return noteStyle("policy");
         }
         edge(node, message) {
             return message.visual === "event"
@@ -290,9 +229,6 @@
         }
         layout(node, config) {
             return rectangle(node, config);
-        }
-        render(node, g, x, y) {
-            return noteRender(node, g, x, y);
         }
     }
 
@@ -300,9 +236,6 @@
         grammar() {
             return { handles: "event", invokes: "command" };
         }
-        get style() {
-            return noteStyle("process");
-        }
         edge(node, message) {
             return message.visual === "event"
                 ? {
@@ -321,17 +254,11 @@
         layout(node, config) {
             return rectangle(node, config);
         }
-        render(node, g, x, y) {
-            return noteRender(node, g, x, y);
-        }
     }
 
     class Projector {
         grammar() {
             return { handles: "event" };
-        }
-        get style() {
-            return noteStyle("projector");
         }
         edge(node, message) {
             return {
@@ -344,17 +271,11 @@
         layout(node, config) {
             return rectangle(node, config);
         }
-        render(node, g, x, y) {
-            return noteRender(node, g, x, y);
-        }
     }
 
     class System {
         grammar() {
             return { handles: "command", emits: "event" };
-        }
-        get style() {
-            return noteStyle("system");
         }
         edge(node, message) {
             return message.visual === "command"
@@ -374,54 +295,18 @@
         layout(node, config) {
             return rectangle(node, config);
         }
-        render(node, g, x, y) {
-            return noteRender(node, g, x, y);
-        }
     }
 
     const artifacts = {
-        context: new Context(),
         actor: new Actor(),
         aggregate: new Aggregate(),
-        system: new System(),
+        context: new Context(),
         policy: new Policy(),
         process: new Process(),
         projector: new Projector(),
-    };
-    const visual = (visual) => {
-        const artifact = artifacts[visual];
-        return artifact
-            ? artifact
-            : {
-                style: noteStyle(visual),
-                layout: square,
-                render: noteRender,
-            };
+        system: new System(),
     };
 
-    const drawArrow = (edge, g, config) => {
-        if (edge.arrow) {
-            const end = edge.path[edge.path.length - 2];
-            const path = edge.path.slice(1, -1);
-            const size = (config.spacing * config.arrowSize) / 30;
-            const dir = normalize(difference(path[path.length - 2], path.at(-1)));
-            const x = (s) => add(end, multiply(dir, s * size));
-            const y = (s) => multiply(rotate(dir), s * size);
-            const circuit = [add(x(10), y(4)), x(5), add(x(10), y(-4)), end];
-            g.fillStyle(config.stroke);
-            g.circuit(circuit).fillAndStroke();
-        }
-    };
-
-    const getPath = (edge, config) => {
-        const path = edge.path.slice(1, -1);
-        const endDir = normalize(difference(path[path.length - 2], path.at(-1)));
-        const size = (config.spacing * config.arrowSize) / 30;
-        const end = path.length - 1;
-        const copy = path.map((p) => ({ x: p.x, y: p.y }));
-        copy[end] = add(copy[end], multiply(endDir, size * (edge.arrow ? 5 : 0)));
-        return copy;
-    };
     const sizeText = (node) => {
         const words = splitId(node.id);
         const maxWord = words.reduce((max, word) => Math.max(max, word.length), 0);
@@ -454,82 +339,183 @@
             fontSize,
         };
     };
-    const render = (root, g, config) => {
-        const renderContents = (node) => {
-            const style = visual(node.visual).style;
+    const renderLines = (lines, g, fontSize, width, height, padding) => {
+        g.setFont(fontSize, "normal", "normal");
+        g.textAlign("center");
+        const lineHeight = fontSize * 1.15;
+        const topMargin = (fontSize + height - lines.length * lineHeight) / 2;
+        const x = width / 2 - padding;
+        lines.forEach((line, i) => {
+            const y = topMargin + i * lineHeight;
+            g.fillText(line, x, y);
+        });
+    };
+    const getPath = (edge, config) => {
+        const path = edge.path.slice(1, -1);
+        const endDir = normalize(difference(path[path.length - 2], path.at(-1)));
+        const size = (config.spacing * config.arrowSize) / 30;
+        const end = path.length - 1;
+        const copy = path.map((p) => ({ x: p.x, y: p.y }));
+        copy[end] = add(copy[end], multiply(endDir, size * (edge.arrow ? 5 : 0)));
+        return copy;
+    };
+    const renderArrow = (edge, g, config) => {
+        if (edge.arrow) {
+            const end = edge.path[edge.path.length - 2];
+            const path = edge.path.slice(1, -1);
+            const size = (config.spacing * config.arrowSize) / 30;
+            const dir = normalize(difference(path[path.length - 2], path.at(-1)));
+            const x = (s) => add(end, multiply(dir, s * size));
+            const y = (s) => multiply(rotate(dir), s * size);
+            const circuit = [add(x(10), y(4)), x(5), add(x(10), y(-4)), end];
+            g.fillStyle(config.stroke);
+            g.circuit(circuit).fillAndStroke();
+        }
+    };
+    const renderEdge = (edge, g, config) => {
+        const path = getPath(edge, config);
+        g.strokeStyle(config.stroke);
+        if (edge.dashed) {
+            var dash = Math.max(4, 2 * config.lineWidth);
             g.group();
-            g.translate(node.offset.x, node.offset.y);
-            g.fillStyle(style.body.color);
-            if (node.visual !== "context") {
-                const { lines, fontSize } = sizeText(node);
-                g.setFont(fontSize, style.body.bold ? "bold" : "normal", style.body.italic ? "italic" : "normal");
-                const lineHeight = fontSize * 1.15;
-                const topMargin = (fontSize + node.height - lines.length * lineHeight) / 2;
-                lines.forEach((line, i) => {
-                    g.textAlign(style.body.center ? "center" : "left");
-                    const x = style.body.center ? node.width / 2 - config.padding : 0;
-                    const y = topMargin + i * lineHeight;
-                    g.fillText(line, x, y);
-                });
-            }
-            else {
-                g.setFont(config.fontSize, style.body.bold ? "bold" : "normal", style.body.italic ? "italic" : "normal");
-                g.textAlign(style.body.center ? "center" : "left");
-                const x = style.body.center ? node.width / 2 - config.padding : 0;
-                const y = config.fontSize;
-                g.fillText(splitId(node.id).join(" "), x, y);
-                g.group();
-                g.translate(config.gutter, config.gutter);
-                node.edges.forEach((r) => renderEdge(r));
-                node.nodes.forEach((n) => renderNode(n));
-                g.ungroup();
-            }
-            g.ungroup();
-        };
-        const renderNode = (node) => {
-            const x = node.x - node.width / 2;
-            const y = node.y - node.height / 2;
-            g.group();
-            g.setData("name", node.id);
-            g.group();
-            const { style, render } = visual(node.visual);
-            g.fillStyle(style.fill);
-            g.strokeStyle(style.body.color);
-            render(node, g, x, y);
-            g.ungroup();
-            g.group();
-            node.id && g.translate(x, y);
-            renderContents(node);
-            g.ungroup();
-            g.ungroup();
-        };
-        const renderEdge = (edge) => {
-            const path = getPath(edge, config);
-            g.strokeStyle(config.stroke);
-            if (edge.dashed) {
-                var dash = Math.max(4, 2 * config.lineWidth);
-                g.group();
+            {
                 g.setLineDash([dash, dash]);
                 g.path(path).stroke();
+            }
+            g.ungroup();
+        }
+        else
+            g.path(path).stroke();
+        renderArrow(edge, g, config);
+    };
+    const context = {
+        style: {
+            stroke: "#CCCCCC",
+            fill: "white",
+        },
+        renderShape: (node, g, x, y) => {
+            node.id && g.rect(x, y, node.width, node.height).fillAndStroke();
+        },
+        renderContents: (node, g, config) => {
+            g.setFont(config.fontSize, "normal", "normal");
+            g.textAlign("left");
+            const x = 0;
+            const y = config.fontSize;
+            g.fillText(splitId(node.id).join(" "), x, y);
+            g.group();
+            g.translate(config.gutter, config.gutter);
+            node.edges.forEach((r) => renderEdge(r, g, config));
+            node.nodes.forEach((n) => renderNode(n, g, config));
+            g.ungroup();
+        },
+    };
+    const actor = {
+        style: {
+            stroke: "#555555",
+            fill: "white",
+        },
+        renderShape: (node, g, x, y, config) => {
+            const a = config.padding / 2;
+            const yp = y + a * 4;
+            const faceCenter = { x: node.x, y: yp - a };
+            g.circle(faceCenter, a).stroke();
+            g.path([
+                { x: node.x, y: yp },
+                { x: node.x, y: yp + 2 * a },
+            ]).stroke();
+            g.path([
+                { x: node.x - a, y: yp + a },
+                { x: node.x + a, y: yp + a },
+            ]).stroke();
+            g.path([
+                { x: node.x - a, y: yp + a + config.padding },
+                { x: node.x, y: yp + config.padding },
+                { x: node.x + a, y: yp + a + config.padding },
+            ]).stroke();
+        },
+        renderContents: (node, g, config) => {
+            const lines = splitId(node.id);
+            renderLines(lines, g, config.fontSize, node.width, node.height, config.padding);
+        },
+    };
+    const COLORS = {
+        context: "white",
+        actor: "white",
+        aggregate: "#fffabb",
+        system: "#eca0c3",
+        projector: "#d5f694",
+        policy: "#c595cd",
+        process: "#c595cd",
+        command: "#7adcfb",
+        event: "#ffaa61",
+    };
+    const note = (visual) => ({
+        style: {
+            stroke: "#555555",
+            fill: COLORS[visual],
+        },
+        renderShape: (node, g, x, y) => {
+            const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
+            g.rect(x, y, node.width, node.height, style).fill();
+        },
+        renderContents: (node, g, config) => {
+            const { lines, fontSize } = sizeText(node);
+            renderLines(lines, g, fontSize, node.width, node.height, config.padding);
+        },
+    });
+    const renderable = (visual) => {
+        if (visual === "context")
+            return context;
+        if (visual === "actor")
+            return actor;
+        return note(visual);
+    };
+    const renderNode = (node, g, config) => {
+        const { style, renderShape, renderContents } = renderable(node.visual);
+        const x = node.x - node.width / 2;
+        const y = node.y - node.height / 2;
+        g.group();
+        {
+            g.setData("name", node.id);
+            g.group();
+            {
+                g.fillStyle(style.fill);
+                g.strokeStyle(style.stroke);
+                renderShape(node, g, x, y, config);
+            }
+            g.ungroup();
+            g.group();
+            {
+                node.id && g.translate(x, y);
+                g.group();
+                {
+                    g.translate(node.offset.x, node.offset.y);
+                    g.fillStyle(style.stroke);
+                    renderContents(node, g, config);
+                }
                 g.ungroup();
             }
-            else
-                g.path(path).stroke();
-            drawArrow(edge, g, config);
-        };
-        g.group();
-        g.clear();
-        g.group();
-        g.strokeStyle("transparent");
-        g.fillStyle(config.background);
-        g.rect(0, 0, root.width, root.height).fill();
+            g.ungroup();
+        }
         g.ungroup();
-        g.setFontFamily(config.font);
-        g.setFont(config.fontSize, "bold", "normal");
-        g.lineWidth(config.lineWidth);
-        g.lineJoin("round");
-        g.lineCap("round");
-        renderNode(root);
+    };
+    const renderRoot = (root, g, config) => {
+        g.group();
+        {
+            g.clear();
+            g.group();
+            {
+                g.strokeStyle("transparent");
+                g.fillStyle(config.background);
+                g.rect(0, 0, root.width, root.height).fill();
+            }
+            g.ungroup();
+            g.setFontFamily(config.font);
+            g.lineWidth(config.lineWidth);
+            g.lineJoin("round");
+            g.lineCap("round");
+            renderNode(root, g, config);
+        }
         g.ungroup();
     };
 
@@ -713,8 +699,6 @@
                     x,
                     y,
                     stroke: "none",
-                    font: "",
-                    style: "",
                     "text-anchor": getDefined(current, (e) => e.attr["text-align"]) === "center"
                         ? "middle"
                         : "",
@@ -774,7 +758,7 @@
     const renderSvg = (root, config) => {
         const g = svg();
         artifacts.context.layout(root, config);
-        render(root, g, config);
+        renderRoot(root, g, config);
         return {
             svg: g.serialize(),
             width: root.width,
@@ -784,7 +768,7 @@
 
     class ParseError extends Error {
         constructor(expected, actual, line, from, to) {
-            super(`Parse error at ${line} [${from}:${to}]: Expected ${expected} but got ${actual}`);
+            super(`Parser error at line ${line}: Expected ${expected} but got ${actual}`);
             this.expected = expected;
             this.actual = actual;
             this.line = line;
@@ -798,7 +782,8 @@
         const error = (expected, actual) => {
             const from = (parser.token_index || parser.line_index) - parser.line_index;
             const to = parser.index - parser.line_index;
-            throw new ParseError(expected, actual, parser.line, from, to);
+            const trimmed = actual.length > 30 ? actual.substring(0, 30) + "..." : actual;
+            throw new ParseError(expected, trimmed, parser.line, from, to);
         };
         const statements = new Map();
         const BLANKS = ["\t", " ", "\n"];
@@ -865,6 +850,7 @@
         const parseStatement = (type) => {
             const name = nextToken();
             !name && error("name", "nothing");
+            name.indexOf(",") > 0 && error("name", "names");
             notKeyword(name, "name");
             !statements.has(name) && statements.set(name, { type, rels: new Map() });
             let token = nextToken();
@@ -909,14 +895,14 @@
             const statement = statements.get(id);
             if (statement && statement.type !== "context" && !statement.context) {
                 statement.context = context.id;
-                const edge = artifacts[statement.type].edge;
-                const anode = { id, visual: statement.type };
+                const artifact = artifacts[statement.type];
+                const anode = { id, visual: statement.type, artifact };
                 statement.rels.forEach((visual, id) => {
                     const rel = statements.get(id);
                     (rel?.type || visual) === "context" && error("component", id);
-                    !visual && !rel && error("defined component", id);
+                    !visual && !rel && error("declared component", id);
                     const mnode = { id, visual: visual || rel.type };
-                    context.edges.add(edge(anode, mnode));
+                    context.edges.add(artifact.edge(anode, mnode));
                     context.nodes.set(id, mnode);
                     trackCtx(context, anode, mnode);
                 });
@@ -929,32 +915,24 @@
                 type = parseStatement(type);
             }
             else
-                error(JSON.stringify(Types), type);
+                error("keyword", type);
         }
-        const root = {
-            id: "",
+        const context = (id = "") => ({
+            id,
             visual: "context",
+            artifact: artifacts.context,
             nodes: new Map(),
             edges: new Set(),
-        };
+        });
+        const root = context();
         statements.forEach((statement, id) => {
             if (statement.type === "context") {
-                const node = {
-                    id,
-                    visual: "context",
-                    nodes: new Map(),
-                    edges: new Set(),
-                };
+                const node = context(id);
                 statement.rels.forEach((_, id) => addNode(node, id));
                 root.nodes.set(id, node);
             }
         });
-        const global = {
-            id: "global",
-            visual: "context",
-            nodes: new Map(),
-            edges: new Set(),
-        };
+        const global = context("global");
         statements.forEach((statement, id) => statement.type !== "context" && !statement.context && addNode(global, id));
         global.nodes?.size && root.nodes.set("global", global);
         _msgCtxs.forEach((x) => {
@@ -971,7 +949,7 @@
         return root;
     };
 
-    function esml(code, scale) {
+    const esml = (code, scale) => {
         const config = {
             arrowSize: 0.5,
             gutter: 20,
@@ -994,8 +972,93 @@
         catch (error) {
             return { error };
         }
+    };
+
+    const MIN_X = 0, MIN_Y = 0;
+    class Canvas extends EventEmitter {
+        constructor(document, container, options) {
+            super();
+            this.SCALE = 80;
+            this.WIDTH = this.SCALE * 100;
+            this.HEIGHT = this.SCALE * 100;
+            this.zoom = 1;
+            this.x = 0;
+            this.y = 0;
+            this.w = 0;
+            this.h = 0;
+            if (options) {
+                this.SCALE = options.SCALE;
+                this.WIDTH = options.WIDTH;
+                this.HEIGHT = options.HEIGHT;
+                this.coordsSpan = options.coordsSpan;
+                this.zoomSpan = options.zoomSpan;
+                this.fitBtn = options.fitBtn;
+            }
+            this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            this.svg.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xlink", "http://www.w3.org/1999/xlink");
+            this.svg.setAttribute("viewBox", `${MIN_X} ${MIN_Y} ${this.WIDTH} ${this.HEIGHT}`);
+            this.svg.setAttribute("width", `${this.WIDTH}`);
+            this.svg.setAttribute("height", `${this.HEIGHT}`);
+            container.appendChild(this.svg);
+            container.addEventListener("wheel", (event) => {
+                event.preventDefault();
+                if (event.metaKey || event.ctrlKey) {
+                    this.fitZoom(this.zoom + event.deltaY * -0.01);
+                    this.transform();
+                }
+                else {
+                    this.transform(event.deltaX, event.deltaY);
+                }
+            });
+            this.fitBtn &&
+                (this.fitBtn.onclick = () => {
+                    const vw = container.clientWidth;
+                    const vh = container.clientHeight;
+                    this.fitZoom(Math.min(vw / this.w, vh / this.h));
+                    this.x = Math.floor((vw - this.w * this.zoom) / 2);
+                    this.y = Math.floor((vh - this.h * this.zoom) / 2);
+                    this.transform();
+                });
+        }
+        fitZoom(z) {
+            this.zoom = Math.round(Math.min(Math.max(0.1, z), 3) * 100) / 100;
+        }
+        transform(dx = 0, dy = 0) {
+            const g = this.svg.children[0];
+            if (g) {
+                this.x = Math.floor(Math.min(Math.max(this.x - dx, MIN_X - this.w * this.zoom), this.WIDTH));
+                this.y = Math.floor(Math.min(Math.max(this.y - dy, MIN_Y - this.h * this.zoom), this.HEIGHT));
+                this.coordsSpan &&
+                    (this.coordsSpan.innerText = `x:${this.x} y:${this.y} w:${this.w} h:${this.h}`);
+                this.zoomSpan &&
+                    (this.zoomSpan.innerText = `${Math.floor(this.zoom * 100)}%`);
+                g.setAttribute("transform", `translate(${this.x}, ${this.y}) scale(${this.zoom})`);
+                this.emit("transformed", {
+                    x: this.x,
+                    y: this.y,
+                    zoom: this.zoom,
+                });
+            }
+        }
+        render({ code, x, y, zoom }) {
+            const { error, svg, width, height } = esml(code, this.SCALE);
+            if (error)
+                return error;
+            this.w = width;
+            this.h = height;
+            this.svg.innerHTML = svg;
+            if (x && y && zoom) {
+                this.x = x;
+                this.y = y;
+                this.zoom = zoom;
+            }
+            this.transform();
+        }
     }
 
+    exports.Canvas = Canvas;
+    exports.Keywords = Keywords;
+    exports.debounce = debounce;
     exports.esml = esml;
 
 }));

@@ -1,62 +1,21 @@
-function debounce(func, delay) {
-  let timeout;
-  return function () {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      func.apply(this);
-    }, delay);
-  };
-}
-
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("container");
-  const svg_view = document.getElementById("svg");
   const parse_err = document.getElementById("parse-error");
-  const coords = document.getElementById("coords");
-  const zoomPct = document.getElementById("zoom");
-  const fit = document.getElementById("fit");
+  const coordsSpan = document.getElementById("coords");
+  const zoomSpan = document.getElementById("zoom");
+  const fitBtn = document.getElementById("fit");
 
-  const SCALE = 80,
-    MIN_X = 0,
-    MIN_Y = 0,
-    WIDTH = SCALE * 100,
-    HEIGHT = SCALE * 100;
-  svg_view.setAttribute("viewBox", `${MIN_X} ${MIN_Y} ${WIDTH} ${HEIGHT}`);
-  svg_view.setAttribute("width", `${WIDTH}`);
-  svg_view.setAttribute("height", `${HEIGHT}`);
-  let zoom = 1,
-    x = 0,
-    y = 0,
-    w = 0,
-    h = 0;
+  const canvas = new esml.Canvas(document, container, {
+    SCALE: 80,
+    WIDTH: 80 * 100,
+    HEIGHT: 80 * 100,
+    coordsSpan,
+    zoomSpan,
+    fitBtn,
+  });
 
-  function fitZoom(z) {
-    zoom = Math.round(Math.min(Math.max(0.1, z), 3) * 100) / 100;
-  }
-
-  fit.onclick = (e) => {
-    x = 0;
-    y = 0;
-    const vw = container.clientWidth;
-    const vh = container.clientHeight;
-    fitZoom(Math.min(vw / w, vh / h));
-    transform();
-  };
-
-  function transform(dx = 0, dy = 0) {
-    const g = svg_view.children[0];
-    if (g) {
-      x = Math.floor(Math.min(Math.max(x - dx, MIN_X - w * zoom), WIDTH));
-      y = Math.floor(Math.min(Math.max(y - dy, MIN_Y - h * zoom), HEIGHT));
-      coords.innerText = `x:${x} y:${y} w:${w} h:${h}`;
-      zoomPct.innerText = `${Math.floor(zoom * 100)}%`;
-      g.setAttribute("transform", `translate(${x}, ${y}) scale(${zoom})`);
-    }
-  }
-
-  // esml keywords
-  const keywords =
-    /\b(?:context|actor|aggregate|system|projector|policy|process|invokes|handles|emits|includes)\b/;
+  const textarea = document.getElementById("code");
+  const keywords = new RegExp(`(?:${esml.Keywords.join("|")})`);
   CodeMirror.defineMode("esml", function () {
     return {
       startState: function () {
@@ -71,75 +30,73 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     };
   });
-
-  const textarea = document.getElementById("code");
   const editor = CodeMirror.fromTextArea(textarea, {
     mode: "esml",
     lineNumbers: true,
     theme: "default",
   });
+  const de_refresh = esml.debounce(refresh, 500);
+  editor.on("change", () => de_refresh(editor.getValue()));
+  const de_save = esml.debounce(save, 3000);
+  canvas.on("transformed", (e) => de_save(e));
 
-  function save() {
+  const cm = document.getElementById("codemirror");
+  let showing = false;
+  document.onmousemove = (e) => {
+    if (!showing && e.x < 100 && e.movementX < 0) {
+      cm.classList.toggle("show");
+      showing = true;
+    }
+  };
+  container.onclick = () => {
+    if (showing) {
+      cm.classList.toggle("show");
+      showing = false;
+    }
+  };
+
+  const KEY = "ESML-Cache";
+  let _x, _y, _zoom;
+  function save(state) {
+    if (state) {
+      _x = state.x;
+      _y = state.y;
+      _zoom = state.zoom;
+    }
     localStorage.setItem(
       KEY,
-      JSON.stringify({ code: editor.getValue(), zoom, x, y })
+      JSON.stringify({ code: editor.getValue(), x: _x, y: _y, zoom: _zoom })
     );
   }
 
-  function refresh(code) {
-    editor.getAllMarks().forEach(function (mark) {
-      mark.clear();
-    });
-    const { error, svg, width, height } = esml.esml(code, SCALE);
+  function refresh(code, x, y, zoom) {
+    editor.getAllMarks().forEach((mark) => mark.clear());
+    const error = canvas.render({ code, x, y, zoom });
     if (error) {
       const { message, line, from, to } = error;
-      const _from = { line: line - 1, ch: from };
-      const _to = { line: line - 1, ch: to };
-      editor.markText(_from, _to, { className: "cm-error" });
+      if (line) {
+        const _from = { line: line - 1, ch: from };
+        const _to = { line: line - 1, ch: to };
+        editor.markText(_from, _to, { className: "cm-error" });
+      }
       parse_err.style.display = "flex";
       parse_err.innerText = message;
-      return false;
+      return;
     }
     parse_err.style.display = "none";
     parse_err.innerText = "";
-    w = width;
-    h = height;
-    svg_view.innerHTML = svg;
-    transform();
-    return true;
+    save();
   }
 
-  const KEY = "ESML-Cache";
   const cache = localStorage.getItem(KEY);
   if (cache) {
-    const data = JSON.parse(cache);
-    if (data.code) {
-      editor.setValue(data.code);
-      refresh(data.code);
+    const { code, x, y, zoom } = JSON.parse(cache);
+    if (code) {
+      _x = x;
+      _y = y;
+      _zoom = zoom;
+      editor.setValue(code);
+      refresh(code, x, y, zoom);
     }
-    data.zoom && (zoom = data.zoom);
-    data.x && (x = data.x);
-    data.y && (y = data.y);
-    transform();
-  }
-
-  editor.on(
-    "change",
-    debounce(() => {
-      refresh(editor.getValue()) && save();
-    }, 500)
-  );
-
-  container.addEventListener("wheel", handleWheel);
-  const saveTransform = debounce(save, 3000);
-  function handleWheel(event) {
-    event.preventDefault();
-    if (event.metaKey || event.ctrlKey) {
-      fitZoom(zoom + event.deltaY * -0.01);
-      transform();
-    } else {
-      transform(event.deltaX, event.deltaY);
-    }
-    saveTransform();
   }
 });

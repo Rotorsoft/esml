@@ -1,4 +1,21 @@
+import { Config, Node } from "../artifacts";
 import { Vector } from "../utils";
+
+interface Style {
+  stroke: string;
+  fill: string;
+}
+export interface Renderable {
+  style: Style;
+  renderShape: (
+    node: Node,
+    g: Graphics,
+    x: number,
+    y: number,
+    config: Config
+  ) => void;
+  renderContents: (node: Node, g: Graphics, config: Config) => void;
+}
 
 type LineCap = "butt" | "round" | "square";
 type LineJoin = "bevel" | "round" | "miter";

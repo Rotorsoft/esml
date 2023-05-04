@@ -1,31 +1,12 @@
 import * as graphre from "graphre";
-import { Graphics } from "../graphics/types";
 import { Artifact, Config, Grammar, Node } from "./types";
 import { EdgeLabel, GraphLabel, GraphNode } from "graphre/decl/types";
-import { visual } from ".";
 import { splitId } from "../utils";
-
-const layout = (node: Node, config: Config): void => {
-  const { layout } = visual(node.visual);
-  layout(node, config);
-  node.width = node.width! + 2 * config.edgeMargin;
-  node.height = node.height! + 2 * config.edgeMargin;
-};
+import { square } from "./layout";
 
 export class Context implements Artifact {
   grammar() {
     return { includes: "artifacts" } as Grammar;
-  }
-  get style() {
-    return {
-      body: {
-        bold: true,
-        italic: false,
-        center: false,
-        color: "#CCCCCC",
-      },
-      fill: "white",
-    };
   }
   edge(node: Node, message: Node, dashed = false, arrow = true) {
     return { start: node.id, end: message.id, dashed, arrow };
@@ -43,8 +24,11 @@ export class Context implements Artifact {
         rankdir: "LR",
         ranker: "network-simplex",
       });
-
-      node.nodes!.forEach((n) => layout(n, config));
+      node.nodes!.forEach((n) => {
+        (n.artifact?.layout || square)(n, config);
+        n.width = n.width! + 2 * config.edgeMargin;
+        n.height = n.height! + 2 * config.edgeMargin;
+      });
       node.nodes!.forEach(({ id, width, height }) =>
         g.setNode(id, { width, height })
       );
@@ -91,8 +75,5 @@ export class Context implements Artifact {
       node.height = config.fontSize + 2 * config.padding;
       node.offset = { x: config.padding, y: config.padding };
     }
-  }
-  render(node: Node, g: Graphics, x: number, y: number) {
-    node.id && g.rect(x, y, node.width!, node.height!).fillAndStroke();
   }
 }

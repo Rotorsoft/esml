@@ -253,8 +253,6 @@ export function svg(): Graphics {
           x,
           y,
           stroke: "none",
-          font: "",
-          style: "",
           "text-anchor":
             getDefined(current, (e) => e.attr!["text-align"]) === "center"
               ? "middle"

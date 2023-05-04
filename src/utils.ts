@@ -26,3 +26,27 @@ export const range = (
     output.push(min + ((max - min) * i) / (count - 1));
   return output;
 };
+
+type F = (this: ThisParameterType<void>, ...args: any[]) => void;
+export const debounce = (func: F, delay: number): F => {
+  let timeout: NodeJS.Timeout;
+  return function (this: ThisParameterType<void>, ...args: any[]): void {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+};
+
+type ListenerFn = (...args: any[]) => void;
+export class EventEmitter {
+  private listeners = new Map<string, Set<ListenerFn>>();
+  public on(eventName: string, listener: ListenerFn): void {
+    !this.listeners.has(eventName) && this.listeners.set(eventName, new Set());
+    this.listeners.get(eventName)!.add(listener);
+  }
+  public emit(eventName: string, ...args: any[]): void {
+    this.listeners.has(eventName) &&
+      this.listeners.get(eventName)!.forEach((listener) => listener(...args));
+  }
+}

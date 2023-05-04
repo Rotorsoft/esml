@@ -1,20 +1,9 @@
-import { Graphics } from "../graphics/types";
-import {
-  Artifact,
-  Config,
-  Grammar,
-  Node,
-  noteRender,
-  noteStyle,
-  rectangle,
-} from "./types";
+import { rectangle } from "./layout";
+import { Artifact, Config, Grammar, Node } from "./types";
 
 export class System implements Artifact {
   grammar() {
     return { handles: "command", emits: "event" } as Grammar;
-  }
-  get style() {
-    return noteStyle("system");
   }
   edge(node: Node, message: Node) {
     return message.visual === "command"
@@ -33,8 +22,5 @@ export class System implements Artifact {
   }
   layout(node: Node, config: Config) {
     return rectangle(node, config);
-  }
-  render(node: Node, g: Graphics, x: number, y: number) {
-    return noteRender(node, g, x, y);
   }
 }

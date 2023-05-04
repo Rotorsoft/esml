@@ -24,7 +24,7 @@ export class ParseError extends Error {
     readonly to: number
   ) {
     super(
-      `Parse error at ${line} [${from}:${to}]: Expected ${expected} but got ${actual}`
+      `Parser error at line ${line}: Expected ${expected} but got ${actual}`
     );
   }
 }
@@ -45,7 +45,9 @@ export const parse = (source: string): Node => {
   const error = (expected: string, actual: string): never => {
     const from = (parser.token_index || parser.line_index) - parser.line_index;
     const to = parser.index - parser.line_index;
-    throw new ParseError(expected, actual, parser.line, from, to);
+    const trimmed =
+      actual.length > 30 ? actual.substring(0, 30) + "..." : actual;
+    throw new ParseError(expected, trimmed, parser.line, from, to);
   };
 
   const statements: Map<
@@ -113,6 +115,7 @@ export const parse = (source: string): Node => {
   const parseStatement = (type: Type): Type => {
     const name = nextToken();
     !name && error("name", "nothing");
+    name.indexOf(",") > 0 && error("name", "names");
     notKeyword(name, "name");
     !statements.has(name) && statements.set(name, { type, rels: new Map() });
 
@@ -164,14 +167,14 @@ export const parse = (source: string): Node => {
     const statement = statements.get(id);
     if (statement && statement.type !== "context" && !statement.context) {
       statement.context = context.id;
-      const edge = artifacts[statement.type].edge;
-      const anode: Node = { id, visual: statement.type };
+      const artifact = artifacts[statement.type];
+      const anode: Node = { id, visual: statement.type, artifact };
       statement.rels.forEach((visual, id) => {
         const rel = statements.get(id);
         (rel?.type || visual) === "context" && error("component", id); // nested context
-        !visual && !rel && error("defined component", id); // orphans
+        !visual && !rel && error("declared component", id); // orphans
         const mnode: Node = { id, visual: visual || rel!.type };
-        context.edges!.add(edge(anode, mnode));
+        context.edges!.add(artifact.edge(anode, mnode));
         context.nodes!.set(id, mnode);
         trackCtx(context, anode, mnode);
       });
@@ -183,35 +186,28 @@ export const parse = (source: string): Node => {
   while (type) {
     if (Types.includes(type)) {
       type = parseStatement(type);
-    } else error(JSON.stringify(Types), type);
+    } else error("keyword", type);
   }
 
-  const root: Node = {
-    id: "",
+  const context = (id = ""): Node => ({
+    id,
     visual: "context",
+    artifact: artifacts.context,
     nodes: new Map(),
     edges: new Set(),
-  };
+  });
+
+  const root = context();
   statements.forEach((statement, id) => {
     if (statement.type === "context") {
-      const node: Node = {
-        id,
-        visual: "context",
-        nodes: new Map(),
-        edges: new Set(),
-      };
+      const node = context(id);
       statement.rels.forEach((_, id) => addNode(node, id));
       root.nodes!.set(id, node);
     }
   });
 
   // put orphans in global context
-  const global: Node = {
-    id: "global",
-    visual: "context",
-    nodes: new Map(),
-    edges: new Set(),
-  };
+  const global = context("global");
   statements.forEach(
     (statement, id) =>
       statement.type !== "context" && !statement.context && addNode(global, id)

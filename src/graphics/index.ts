@@ -1,6 +1,8 @@
 import { Config, Node, artifacts } from "../artifacts";
-import { render } from "./render";
+import { renderRoot } from "./render";
 import { svg } from "./svg";
+
+export { Graphics } from "./types";
 
 export const renderSvg = (
   root: Node,
@@ -12,7 +14,7 @@ export const renderSvg = (
 } => {
   const g = svg();
   artifacts.context.layout(root, config);
-  render(root, g, config);
+  renderRoot(root, g, config);
   return {
     svg: g.serialize(),
     width: root.width!,

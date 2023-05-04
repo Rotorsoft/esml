@@ -2,15 +2,9 @@
   "name": "@rotorsoft/esml",
   "version": "0.1.0",
   "description": "Event Storming Modeling Language",
-  "author": {
-    "name": "rotorsoft",
-    "email": "rotorsoft@outlook.com"
-  },
+  "author": "rotorsoft <rotorsoft@outlook.com>",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/rotorsoft/esml.git"
-  },
+  "repository": "git+https://github.com/rotorsoft/esml.git",
   "main": "dist/index",
   "types": "dist/index",
   "files": [
@@ -33,10 +27,12 @@
     "typescript": "^5.0.4"
   },
   "scripts": {
+    "prepare": "npx crlf --set=LF node_modules/.bin/live-server",
     "rollup": "rollup -c --bundleConfigAsCjs rollup.config.js",
-    "start": "npm run rollup && live-server --port=5050 --open=docs/index.html",
+    "start": "yarn rollup && live-server --port=5050 --open=docs/index.html",
     "dev": "npx ts-node-dev --transpile-only --respawn -r tsconfig-paths/register ./src/index.ts",
-    "test": "npx jest",
-    "build": "npm i && npx tsc && cp package*.json ./dist"
-  }
+    "test": "yarn jest",
+    "build": "yarn && npx tsc && cp package*.json ./dist"
+  },
+  "private": false
 }

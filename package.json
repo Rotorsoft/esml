@@ -32,7 +32,7 @@
     "start": "yarn rollup && live-server --port=5050 --open=docs/index.html",
     "dev": "npx ts-node-dev --transpile-only --respawn -r tsconfig-paths/register ./src/index.ts",
     "test": "yarn jest",
-    "build": "yarn && npx tsc && cp package*.json ./dist"
+    "build": "yarn && npx tsc && cp package.json ./dist && cp yarn.lock ./dist"
   },
   "private": false
 }

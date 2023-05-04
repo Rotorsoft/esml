@@ -68,6 +68,9 @@ jobs:
 
       - name: release
         run: |
+          echo ">>> building..."
+          yarn build
+
           echo ">>> changelog..."
           msg="chore(release): ${TAG}"
           notes=$(echo "${{ steps.analyze.outputs.change-log }}" | awk '{gsub(/\\n/,"\n")}1')
@@ -78,11 +81,11 @@ jobs:
 
           echo ">>> committing..."
           git add -A .
-          HUSKY=0 git commit -am "${msg}"
+          git commit -am "${msg}"
 
           echo ">>> pushing..."
           git tag -a ${{ steps.analyze.outputs.next-tag }} HEAD -m "${msg}"
-          HUSKY=0 git push --follow-tags origin "${GITHUB_REF}"
+          git push --follow-tags origin "${GITHUB_REF}"
 
           echo ">>> publishing..."
           npm publish --access public

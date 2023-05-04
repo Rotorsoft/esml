@@ -52,14 +52,59 @@ jobs:
           echo "${{ steps.analyze.outputs.change-log }}"
 
       - name: release
-        uses: ./.github/workflows/release.yml
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           npm-registry: "registry.npmjs.org"
           npm-token: "${{ secrets.NPM_TOKEN }}"
-          npm-access: "public"
           user: "rotorsoft"
           email: "rotorsoft@outlook.com"
           tag: "${{ steps.analyze.outputs.next-tag }}"
           version: "${{ steps.analyze.outputs.next-version }}"
           change-log: "${{ steps.analyze.outputs.change-log }}"
+
+        run: |
+          if [[ "${tag}" != "@rotorsoft/esml-v${version}" ]]; then
+            echo "⏏ Invalid semrel tag: ${tag} ⏏";
+            exit 0;
+          fi
+
+          echo ">>> pulling..."
+          git config user.name "${user}"
+          git config user.email "${email}"
+          git remote set-url origin "${GITHUB_URL}.git"
+          git pull origin "${GITHUB_REF}"
+
+          echo ">>> building..."
+          yarn build
+
+          echo ">>> changelog..."
+          msg="chore(release): ${TAG}"
+          notes=$(echo "${change-log}" | awk '{gsub(/\\n/,"\n")}1')
+          echo "${notes}"$'\n'"$(cat ./CHANGELOG.md)" > ./CHANGELOG.md
+
+          echo ">>> bumping..."
+          npm --no-git-tag-version version "${version}"
+
+          echo ">>> committing..."
+          git add -A .
+          HUSKY=0 git commit -am "${msg}"
+
+          echo ">>> pushing..."
+          git tag -a ${tag} HEAD -m "${msg}"
+          HUSKY=0 git push --follow-tags origin "${GITHUB_REF}"
+
+          echo ">>> releasing..."
+          data=$(jq -n \
+            --arg tag "${tag}" \
+            --arg notes "${notes}" \
+            '{name: $tag, tag_name: $tag, body: $notes}')
+          curl -u ${user}:${GITHUB_TOKEN} -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${GITHUB_REPO}/releases -d "${data}"
+
+          if [[ ! -z "${npm-registry}" ]]; then
+            echo ">>> publishing..."
+            echo "//${npm-registry}/:_authToken=${npm-token}" >> .npmrc
+            npm config set registry "https://${npm-registry}"
+            yarn npm publish --access public
+          fi
+
+          echo "🚀 ${TAG} released succesfully! 🚀"

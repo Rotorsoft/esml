@@ -98,7 +98,7 @@ jobs:
             echo ">>> publishing..."
             echo "//${NPM_REGISTRY}/:_authToken=${npm-token}" >> .npmrc
             npm config set registry "https://${NPM_REGISTRY}"
-            yarn npm publish --access public
+            npm publish --access public
           fi
 
           echo "🚀 ${TAG} released succesfully! 🚀"

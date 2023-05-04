@@ -5,10 +5,8 @@ on:
   workflow_dispatch:
 
 env:
-  # .yarnrc.yml needs this
   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
   GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-  NPM_REGISTRY: "registry.npmjs.org"
 
 jobs:
   ci:
@@ -52,14 +50,25 @@ jobs:
           echo "next-tag: ${{ steps.analyze.outputs.next-tag }}"
           echo "next-version: ${{ steps.analyze.outputs.next-version }}"
           echo "${{ steps.analyze.outputs.change-log }}"
-
-      - name: release
-        run: |
           if [[ "${{ steps.analyze.outputs.next-tag }}" != "@rotorsoft/esml-v${{ steps.analyze.outputs.next-version }}" ]]; then
-            echo "⏏ Invalid semrel tag: ${{ steps.analyze.outputs.next-tag }} ⏏";
+            echo "⏏ Invalid semrel tag: ${{ steps.analyze.outputs.next-tag }}";
             exit 0;
           fi
 
+      - name: config
+        run: |
+          echo ">>> authorizing npm..."
+          npm config set registry "https://registry.npmjs.org"
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          cat .npmrc
+
+          echo ">>> configuring git..."
+          git config --global user.email "rotorsoft@outlook.com"
+          git config --global user.name "rotorsoft"
+          git remote set-url origin "${GITHUB_URL}.git"
+
+      - name: release
+        run: |
           echo ">>> changelog..."
           msg="chore(release): ${TAG}"
           notes=$(echo "${{ steps.analyze.outputs.change-log }}" | awk '{gsub(/\\n/,"\n")}1')
@@ -69,9 +78,6 @@ jobs:
           npm --no-git-tag-version version "${{ steps.analyze.outputs.next-version }}"
 
           echo ">>> committing..."
-          git config --global user.email "rotorsoft@outlook.com"
-          git config --global user.name "rotorsoft"
-          git remote set-url origin "${GITHUB_URL}.git"
           git add -A .
           HUSKY=0 git commit -am "${msg}"
 
@@ -80,8 +86,6 @@ jobs:
           HUSKY=0 git push --follow-tags origin "${GITHUB_REF}"
 
           echo ">>> publishing..."
-          echo "//${NPM_REGISTRY}/:_authToken=${NPM_TOKEN}" >> .npmrc
-          npm config set registry "https://${NPM_REGISTRY}"
           npm publish --access public
 
           echo "🚀 ${TAG} released succesfully! 🚀"

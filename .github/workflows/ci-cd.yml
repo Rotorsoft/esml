@@ -37,59 +37,16 @@ jobs:
         with:
           node-version: 18.x
 
-      - name: analyze
-        id: analyze
-        uses: rotorsoft/semrel-analyze@v2
-        with:
-          package: "@rotorsoft/esml"
-          directory: "@rotorsoft/esml"
-
-      - name: analysis
-        run: |
-          echo "last-tag: ${{ steps.analyze.outputs.last-tag }}"
-          echo "next-tag: ${{ steps.analyze.outputs.next-tag }}"
-          echo "next-version: ${{ steps.analyze.outputs.next-version }}"
-          echo "${{ steps.analyze.outputs.change-log }}"
-          if [[ "${{ steps.analyze.outputs.next-tag }}" != "@rotorsoft/esml-v${{ steps.analyze.outputs.next-version }}" ]]; then
-            echo "⏏ Invalid semrel tag: ${{ steps.analyze.outputs.next-tag }}";
-            exit 1;
-          fi
-
-      - name: config
-        run: |
-          echo ">>> configuring git..."
-          git config --global user.email "rotorsoft@outlook.com"
-          git config --global user.name "rotorsoft"
-          git remote set-url origin "${GITHUB_URL}.git"
-          git pull origin master
+      - name: build
+        run: npm run build
 
       - name: release
+        run: npm run semantic-release
+
+      - name: publish
         run: |
-          echo ">>> building..."
-          yarn build
-
-          echo ">>> changelog..."
-          msg="chore(release): ${TAG}"
-          notes=$(echo "${{ steps.analyze.outputs.change-log }}" | awk '{gsub(/\\n/,"\n")}1')
-          echo "${notes}"$'\n'"$(cat ./CHANGELOG.md)" > ./CHANGELOG.md
-
-          echo ">>> bumping..."
-          npm --no-git-tag-version version "${{ steps.analyze.outputs.next-version }}"
-
-          echo ">>> committing..."
-          git add -A .
-          git commit -am "${msg}"
-          git log
-
-          echo ">>> pushing..."
-          git tag -a ${{ steps.analyze.outputs.next-tag }} HEAD -m "${msg}"
-          git push origin master --follow-tags 
-
-          echo ">>> authorizing npm..."
           npm config set registry "https://registry.npmjs.org"
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-
-          echo ">>> publishing..."
           npm publish --access public
 
-          echo "🚀 ${TAG} released succesfully! 🚀"
+          echo "🚀 ${TAG} released and published succesfully! 🚀"

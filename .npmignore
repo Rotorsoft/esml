@@ -8,6 +8,7 @@ tests
 CHANGELOG.md
 CODE_OF_CONDUCT.md
 jest.config.js
+release.config.js
 rollup.config.js
 SECURITY.md
 tsconfig.json

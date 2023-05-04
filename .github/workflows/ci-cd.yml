@@ -7,6 +7,10 @@ on:
 env:
   # .yarnrc.yml needs this
   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+  NPM_REGISTRY: "registry.npmjs.org"
+  USER: "rotorsoft"
+  EMAIL: "rotorsoft@outlook.com"
 
 jobs:
   ci:
@@ -38,7 +42,6 @@ jobs:
           node-version: 18.x
 
       - name: analyze
-        id: analyze
         uses: rotorsoft/semrel-analyze@v2
         with:
           package: "@rotorsoft/esml"
@@ -52,25 +55,15 @@ jobs:
           echo "${{ steps.analyze.outputs.change-log }}"
 
       - name: release
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          npm-registry: "registry.npmjs.org"
-          npm-token: "${{ secrets.NPM_TOKEN }}"
-          user: "rotorsoft"
-          email: "rotorsoft@outlook.com"
-          tag: "${{ steps.analyze.outputs.next-tag }}"
-          version: "${{ steps.analyze.outputs.next-version }}"
-          change-log: "${{ steps.analyze.outputs.change-log }}"
-
         run: |
-          if [[ "${tag}" != "@rotorsoft/esml-v${version}" ]]; then
-            echo "⏏ Invalid semrel tag: ${tag} ⏏";
+          if [[ "${{ steps.analyze.outputs.next-tag }}" != "@rotorsoft/esml-v${{ steps.analyze.outputs.next-version }}" ]]; then
+            echo "⏏ Invalid semrel tag: ${{ steps.analyze.outputs.next-tag }} ⏏";
             exit 0;
           fi
 
           echo ">>> pulling..."
-          git config user.name "${user}"
-          git config user.email "${email}"
+          git config user.name "${USER}"
+          git config user.email "${EMAIL}"
           git remote set-url origin "${GITHUB_URL}.git"
           git pull origin "${GITHUB_REF}"
 
@@ -79,31 +72,31 @@ jobs:
 
           echo ">>> changelog..."
           msg="chore(release): ${TAG}"
-          notes=$(echo "${change-log}" | awk '{gsub(/\\n/,"\n")}1')
+          notes=$(echo "${{ steps.analyze.outputs.change-log }}" | awk '{gsub(/\\n/,"\n")}1')
           echo "${notes}"$'\n'"$(cat ./CHANGELOG.md)" > ./CHANGELOG.md
 
           echo ">>> bumping..."
-          npm --no-git-tag-version version "${version}"
+          npm --no-git-tag-version version "${{ steps.analyze.outputs.next-version }}"
 
           echo ">>> committing..."
           git add -A .
           HUSKY=0 git commit -am "${msg}"
 
           echo ">>> pushing..."
-          git tag -a ${tag} HEAD -m "${msg}"
+          git tag -a ${{ steps.analyze.outputs.next-tag }} HEAD -m "${msg}"
           HUSKY=0 git push --follow-tags origin "${GITHUB_REF}"
 
           echo ">>> releasing..."
           data=$(jq -n \
-            --arg tag "${tag}" \
+            --arg tag "${{ steps.analyze.outputs.next-tag }}" \
             --arg notes "${notes}" \
             '{name: $tag, tag_name: $tag, body: $notes}')
-          curl -u ${user}:${GITHUB_TOKEN} -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${GITHUB_REPO}/releases -d "${data}"
+          curl -u ${USER}:${GITHUB_TOKEN} -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${GITHUB_REPO}/releases -d "${data}"
 
-          if [[ ! -z "${npm-registry}" ]]; then
+          if [[ ! -z "${NPM_REGISTRY}" ]]; then
             echo ">>> publishing..."
-            echo "//${npm-registry}/:_authToken=${npm-token}" >> .npmrc
-            npm config set registry "https://${npm-registry}"
+            echo "//${NPM_REGISTRY}/:_authToken=${npm-token}" >> .npmrc
+            npm config set registry "https://${NPM_REGISTRY}"
             yarn npm publish --access public
           fi
 

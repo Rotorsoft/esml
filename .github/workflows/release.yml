@@ -1,0 +1,108 @@
+on:
+  workflow_call:
+    inputs:
+      github-token:
+        description: "The secrets.GITHUB_TOKEN from the calling action"
+        required: true
+        type: string
+      npm-registry:
+        description: "The name of the npm registry to publish to (optional)"
+        required: false
+        type: string
+      npm-token:
+        description: "The npm token used to authenticate with the npm registry"
+        required: false
+        type: string
+        default: ""
+      npm-access:
+        description: "The npm access option [--access <public|restricted>]"
+        required: false
+        type: string
+        default: "restricted"
+      user:
+        description: "The name of the git user releasing this package"
+        required: true
+        type: string
+      email:
+        description: "The email of the git user releasing this package"
+        required: true
+        type: string
+      tag:
+        description: "Version tag formatted as <package>-v<semver>"
+        required: true
+        type: string
+      version:
+        description: "Semantic version"
+        required: true
+        type: string
+      change-log:
+        description: "Log of conventional commits in this release (.md format)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: release ${{ inputs.package }}
+        id: release
+        shell: bash
+        env:
+          GITHUB_TOKEN: "${{ inputs.github-token }}"
+          GITHUB_URL: "${{ github.server_url }}/${{ github.repository }}"
+          GITHUB_REPO: "${{ github.repository }}"
+          NPM_REGISTRY: "${{ inputs.npm-registry }}"
+          NPM_TOKEN: "${{ inputs.npm-token }}"
+          NPM_ACCESS: "${{ inputs.npm-access }}"
+          USER: "${{ inputs.user }}"
+          EMAIL: "${{ inputs.email }}"
+          TAG: "${{ inputs.tag }}"
+          VERSION: "${{ inputs.version }}"
+          CHANGE_LOG: "${{ inputs.change-log }}"
+
+        run: |
+          if [[ "${TAG}" != "@rotorsoft/esml-v${VERSION}" ]]; then
+            echo "⏏ Invalid semrel tag: ${TAG} ⏏";
+            exit 0;
+          fi
+
+          echo ">>> pulling..."
+          git config user.name "${USER}"
+          git config user.email "${EMAIL}"
+          git remote set-url origin "${GITHUB_URL}.git"
+          git pull origin "${GITHUB_REF}"
+
+          echo ">>> building..."
+          yarn build
+
+          echo ">>> changelog..."
+          msg="chore(release): ${TAG}"
+          notes=$(echo "${CHANGE_LOG}" | awk '{gsub(/\\n/,"\n")}1')
+          echo "${notes}"$'\n'"$(cat ./CHANGELOG.md)" > ./CHANGELOG.md
+
+          echo ">>> bumping..."
+          npm --no-git-tag-version version "${VERSION}"
+
+          echo ">>> committing..."
+          git add -A .
+          HUSKY=0 git commit -am "${msg}"
+
+          echo ">>> pushing..."
+          git tag -a ${TAG} HEAD -m "${msg}"
+          HUSKY=0 git push --follow-tags origin "${GITHUB_REF}"
+
+          echo ">>> releasing..."
+          data=$(jq -n \
+            --arg tag "${TAG}" \
+            --arg notes "${notes}" \
+            '{name: $tag, tag_name: $tag, body: $notes}')
+          curl -u ${USER}:${GITHUB_TOKEN} -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${GITHUB_REPO}/releases -d "${data}"
+
+          if [[ ! -z "${NPM_REGISTRY}" ]]; then
+            echo ">>> publishing..."
+            echo "//${NPM_REGISTRY}/:_authToken=${NPM_TOKEN}" >> .npmrc
+            npm config set registry "https://${NPM_REGISTRY}"
+            yarn npm publish --access "${NPM_ACCESS}"
+          fi
+
+          echo "🚀 ${TAG} released succesfully! 🚀"

@@ -52,7 +52,7 @@ jobs:
           echo "${{ steps.analyze.outputs.change-log }}"
 
       - name: release
-        uses: rotorsoft/semrel-release@v1
+        uses: ./.github/workflows/release.yml
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           npm-registry: "registry.npmjs.org"
@@ -60,8 +60,6 @@ jobs:
           npm-access: "public"
           user: "rotorsoft"
           email: "rotorsoft@outlook.com"
-          package: "@rotorsoft/esml"
-          directory: ""
           tag: "${{ steps.analyze.outputs.next-tag }}"
           version: "${{ steps.analyze.outputs.next-version }}"
           change-log: "${{ steps.analyze.outputs.change-log }}"

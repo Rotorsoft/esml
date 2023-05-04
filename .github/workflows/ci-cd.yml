@@ -60,7 +60,6 @@ jobs:
           echo ">>> authorizing npm..."
           npm config set registry "https://registry.npmjs.org"
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          cat .npmrc
 
           echo ">>> configuring git..."
           git config --global user.email "rotorsoft@outlook.com"

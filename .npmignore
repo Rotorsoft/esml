@@ -1,0 +1,17 @@
+.github
+docs
+node_modules
+src
+tests
+.gitignore
+.npmignore
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+jest.config.js
+rollup.config.js
+SECURITY.md
+tsconfig.json
+tsconfig.rollup.json
+yarn.lock
+yarn-error.log
+.DS_Store

@@ -52,7 +52,7 @@ jobs:
           echo "${{ steps.analyze.outputs.change-log }}"
           if [[ "${{ steps.analyze.outputs.next-tag }}" != "@rotorsoft/esml-v${{ steps.analyze.outputs.next-version }}" ]]; then
             echo "⏏ Invalid semrel tag: ${{ steps.analyze.outputs.next-tag }}";
-            exit 0;
+            exit 1;
           fi
 
       - name: config

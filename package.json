@@ -27,7 +27,7 @@
     "typescript": "^5.0.4"
   },
   "scripts": {
-    "prepare": "npx crlf --set=LF node_modules/.bin/live-server",
+    "fix-live-server": "npx crlf --set=LF node_modules/.bin/live-server",
     "rollup": "rollup -c --bundleConfigAsCjs rollup.config.js",
     "start": "yarn rollup && live-server --port=5050 --open=docs/index.html",
     "dev": "npx ts-node-dev --transpile-only --respawn -r tsconfig-paths/register ./src/index.ts",

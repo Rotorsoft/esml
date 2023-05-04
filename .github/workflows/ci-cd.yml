@@ -61,7 +61,7 @@ jobs:
           user: "rotorsoft"
           email: "rotorsoft@outlook.com"
           package: "@rotorsoft/esml"
-          directory: "@rotorsoft/esml"
+          directory: ""
           tag: "${{ steps.analyze.outputs.next-tag }}"
           version: "${{ steps.analyze.outputs.next-version }}"
           change-log: "${{ steps.analyze.outputs.change-log }}"

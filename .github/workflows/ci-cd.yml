@@ -71,6 +71,7 @@ jobs:
           echo ">>> committing..."
           git config --global user.email "rotorsoft@outlook.com"
           git config --global user.name "rotorsoft"
+          git remote set-url origin "${GITHUB_URL}.git"
           git add -A .
           HUSKY=0 git commit -am "${msg}"
 

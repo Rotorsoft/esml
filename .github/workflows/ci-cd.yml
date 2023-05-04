@@ -41,7 +41,7 @@ jobs:
         run: npm run build
 
       - name: release
-        run: npm run semantic-release
+        run: npm run release
 
       - name: publish
         run: |

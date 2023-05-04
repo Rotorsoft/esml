@@ -65,7 +65,6 @@ jobs:
       - name: release
         run: |
           echo ">>> building..."
-          git pull
           yarn build
 
           echo ">>> changelog..."
@@ -82,7 +81,7 @@ jobs:
 
           echo ">>> pushing..."
           git tag -a ${{ steps.analyze.outputs.next-tag }} HEAD -m "${msg}"
-          git push --follow-tags origin "${GITHUB_REF}"
+          git push --follow-tags origin master
 
           echo ">>> authorizing npm..."
           npm config set registry "https://registry.npmjs.org"

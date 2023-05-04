@@ -1,0 +1,67 @@
+name: CI-CD
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  # .yarnrc.yml needs this
+  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: install node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+
+      - name: install and build
+        run: npm run build
+
+      - name: unit test
+        run: npm run test
+  cd:
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: install node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+
+      - name: analyze
+        id: analyze
+        uses: rotorsoft/semrel-analyze@v2
+        with:
+          package: "@rotorsoft/esml"
+          directory: "."
+
+      - name: analysis
+        run: |
+          echo "last-tag: ${{ steps.analyze.outputs.last-tag }}"
+          echo "next-tag: ${{ steps.analyze.outputs.next-tag }}"
+          echo "next-version: ${{ steps.analyze.outputs.next-version }}"
+          echo "${{ steps.analyze.outputs.change-log }}"
+
+      - name: release
+        uses: rotorsoft/semrel-release@v1
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          npm-registry: "registry.npmjs.org"
+          npm-token: "${{ secrets.NPM_TOKEN }}"
+          npm-access: "public"
+          user: "rotorsoft"
+          email: "rotorsoft@outlook.com"
+          package: "@rotorsoft/esml"
+          directory: "."
+          tag: "${{ steps.analyze.outputs.next-tag }}"
+          version: "${{ steps.analyze.outputs.next-version }}"
+          change-log: "${{ steps.analyze.outputs.change-log }}"

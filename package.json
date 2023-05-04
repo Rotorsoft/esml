@@ -1,5 +1,5 @@
 {
-  "name": "esml",
+  "name": "@rotorsoft/esml",
   "version": "0.1.0",
   "description": "Event Storming Modeling Language",
   "author": {
@@ -7,15 +7,27 @@
     "email": "rotorsoft@outlook.com"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rotorsoft/esml.git"
+  },
+  "main": "dist/index",
+  "types": "dist/index",
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "graphre": "^0.1.3"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.0.2",
     "@rollup/plugin-typescript": "^11.1.0",
+    "@types/jest": "^29.5.1",
     "@types/node": "^18.16.3",
+    "jest": "^29.5.0",
     "live-server": "^1.1.0",
     "rollup": "^3.21.2",
+    "ts-jest": "^29.1.0",
     "tsconfig-paths": "^4.2.0",
     "tslib": "^2.4.0",
     "typescript": "^5.0.4"
@@ -23,6 +35,8 @@
   "scripts": {
     "rollup": "rollup -c --bundleConfigAsCjs rollup.config.js",
     "start": "npm run rollup && live-server --port=5050 --open=docs/index.html",
-    "dev": "npx ts-node-dev --transpile-only --respawn -r tsconfig-paths/register ./src/index.ts"
+    "dev": "npx ts-node-dev --transpile-only --respawn -r tsconfig-paths/register ./src/index.ts",
+    "test": "npx jest",
+    "build": "npm i && npx tsc && cp package*.json ./dist"
   }
 }

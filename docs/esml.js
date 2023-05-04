@@ -981,6 +981,9 @@
             this.SCALE = 80;
             this.WIDTH = this.SCALE * 100;
             this.HEIGHT = this.SCALE * 100;
+            this.dragging = false;
+            this.dx = 0;
+            this.dy = 0;
             this.zoom = 1;
             this.x = 0;
             this.y = 0;
@@ -1000,16 +1003,39 @@
             this.svg.setAttribute("width", `${this.WIDTH}`);
             this.svg.setAttribute("height", `${this.HEIGHT}`);
             container.appendChild(this.svg);
-            container.addEventListener("wheel", (event) => {
-                event.preventDefault();
-                if (event.metaKey || event.ctrlKey) {
-                    this.fitZoom(this.zoom + event.deltaY * -0.01);
+            container.addEventListener("wheel", (e) => {
+                e.preventDefault();
+                if (e.metaKey || e.ctrlKey) {
+                    this.fitZoom(this.zoom + e.deltaY * -0.01);
                     this.transform();
                 }
                 else {
-                    this.transform(event.deltaX, event.deltaY);
+                    this.transform(e.deltaX, e.deltaY);
                 }
             });
+            const dragStart = ({ clientX, clientY }) => {
+                this.dragging = true;
+                this.dx = clientX;
+                this.dy = clientY;
+                container.style.cursor = "grabbing";
+            };
+            const dragEnd = () => {
+                this.dragging = false;
+                container.style.cursor = "default";
+            };
+            const drag = ({ clientX, clientY }) => {
+                if (this.dragging) {
+                    this.transform(this.dx - clientX, this.dy - clientY);
+                    this.dx = clientX;
+                    this.dy = clientY;
+                }
+            };
+            container.addEventListener("mousedown", dragStart);
+            container.addEventListener("mouseup", dragEnd);
+            container.addEventListener("mousemove", drag);
+            container.addEventListener("touchstart", (e) => dragStart(e.touches[0]));
+            container.addEventListener("touchend", dragEnd);
+            container.addEventListener("touchmove", (e) => drag(e.touches[0]));
             this.fitBtn &&
                 (this.fitBtn.onclick = () => {
                     const vw = container.clientWidth;
@@ -1057,6 +1083,7 @@
     }
 
     exports.Canvas = Canvas;
+    exports.EventEmitter = EventEmitter;
     exports.Keywords = Keywords;
     exports.debounce = debounce;
     exports.esml = esml;

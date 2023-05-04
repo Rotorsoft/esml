@@ -1,21 +1,37 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const container = document.getElementById("container");
+const Store = () => {
+  const KEY = "ESML-Cache";
+  let _x, _y, _z;
+
+  const load = () => {
+    const cache = localStorage.getItem(KEY);
+    if (cache) {
+      const { code, x, y, zoom } = JSON.parse(cache);
+      _x = x;
+      _y = y;
+      _z = zoom;
+      return { code, x, y, zoom };
+    }
+    return {};
+  };
+
+  const save = esml.debounce(({ code, x, y, zoom }) => {
+    console.log({ code, x, y, zoom });
+    if (!code) return;
+    x = _x = x || _x;
+    y = _y = y || _y;
+    zoom = _z = zoom || _z;
+    localStorage.setItem(KEY, JSON.stringify({ code, x, y, zoom }));
+  }, 3000);
+
+  return { load, save };
+};
+
+const Editor = (canvas, bus) => {
+  const codemirror = document.getElementById("codemirror");
   const parse_err = document.getElementById("parse-error");
-  const coordsSpan = document.getElementById("coords");
-  const zoomSpan = document.getElementById("zoom");
-  const fitBtn = document.getElementById("fit");
-
-  const canvas = new esml.Canvas(document, container, {
-    SCALE: 80,
-    WIDTH: 80 * 100,
-    HEIGHT: 80 * 100,
-    coordsSpan,
-    zoomSpan,
-    fitBtn,
-  });
-
   const textarea = document.getElementById("code");
   const keywords = new RegExp(`(?:${esml.Keywords.join("|")})`);
+
   CodeMirror.defineMode("esml", function () {
     return {
       startState: function () {
@@ -30,46 +46,14 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     };
   });
+
   const editor = CodeMirror.fromTextArea(textarea, {
     mode: "esml",
     lineNumbers: true,
     theme: "default",
   });
-  const de_refresh = esml.debounce(refresh, 500);
-  editor.on("change", () => de_refresh(editor.getValue()));
-  const de_save = esml.debounce(save, 3000);
-  canvas.on("transformed", (e) => de_save(e));
 
-  const cm = document.getElementById("codemirror");
-  let showing = false;
-  document.onmousemove = (e) => {
-    if (!showing && e.x < 100 && e.movementX < 0) {
-      cm.classList.toggle("show");
-      showing = true;
-    }
-  };
-  container.onclick = () => {
-    if (showing) {
-      cm.classList.toggle("show");
-      showing = false;
-    }
-  };
-
-  const KEY = "ESML-Cache";
-  let _x, _y, _zoom;
-  function save(state) {
-    if (state) {
-      _x = state.x;
-      _y = state.y;
-      _zoom = state.zoom;
-    }
-    localStorage.setItem(
-      KEY,
-      JSON.stringify({ code: editor.getValue(), x: _x, y: _y, zoom: _zoom })
-    );
-  }
-
-  function refresh(code, x, y, zoom) {
+  const refresh = esml.debounce((code, x, y, zoom) => {
     editor.getAllMarks().forEach((mark) => mark.clear());
     const error = canvas.render({ code, x, y, zoom });
     if (error) {
@@ -85,18 +69,67 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     parse_err.style.display = "none";
     parse_err.innerText = "";
-    save();
-  }
+    bus.emit("refreshed", code);
+  }, 500);
 
-  const cache = localStorage.getItem(KEY);
-  if (cache) {
-    const { code, x, y, zoom } = JSON.parse(cache);
-    if (code) {
-      _x = x;
-      _y = y;
-      _zoom = zoom;
+  editor.on("change", () => refresh(editor.getValue()));
+
+  const show = () =>
+    !codemirror.classList.contains("show") &&
+    codemirror.classList.toggle("show");
+
+  const hide = () =>
+    codemirror.classList.contains("show") &&
+    codemirror.classList.toggle("show");
+
+  const resize = () => {
+    codemirror.style.minWidth = Math.floor(window.innerWidth * 0.4);
+    codemirror.style.maxWidth = Math.floor(window.innerWidth * 0.6);
+  };
+
+  codemirror.onclick = show;
+  window.onresize = resize;
+  resize();
+
+  return {
+    show,
+    hide,
+    code: () => editor.getValue(),
+    load: ({ code, x, y, zoom }) => {
       editor.setValue(code);
       refresh(code, x, y, zoom);
-    }
-  }
+    },
+  };
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const container = document.getElementById("container");
+  const coordsSpan = document.getElementById("coords");
+  const zoomSpan = document.getElementById("zoom");
+  const fitBtn = document.getElementById("fit");
+  const canvas = new esml.Canvas(document, container, {
+    SCALE: 80,
+    WIDTH: 80 * 100,
+    HEIGHT: 80 * 100,
+    coordsSpan,
+    zoomSpan,
+    fitBtn,
+  });
+
+  const store = Store();
+  const bus = new esml.EventEmitter();
+  const editor = Editor(canvas, bus);
+
+  const cache = store.load();
+  editor.load(cache);
+
+  setTimeout(() => {
+    bus.on("refreshed", (code) => store.save({ code }));
+    canvas.on("transformed", ({ x, y, zoom }) =>
+      store.save({ code: editor.code(), x, y, zoom })
+    );
+  }, 1000);
+
+  document.onmousemove = (e) => e.x < 100 && e.movementX < -10 && editor.show();
+  container.onclick = () => editor.hide();
 });

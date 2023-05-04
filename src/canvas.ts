@@ -35,6 +35,10 @@ export class Canvas extends EventEmitter {
   readonly zoomSpan: HTMLSpanElement | undefined;
   readonly fitBtn: HTMLButtonElement | undefined;
 
+  dragging = false;
+  dx = 0;
+  dy = 0;
+
   zoom = 1;
   x = 0;
   y = 0;
@@ -69,15 +73,43 @@ export class Canvas extends EventEmitter {
     this.svg.setAttribute("height", `${this.HEIGHT}`);
     container.appendChild(this.svg);
 
-    container.addEventListener("wheel", (event: WheelEvent) => {
-      event.preventDefault();
-      if (event.metaKey || event.ctrlKey) {
-        this.fitZoom(this.zoom + event.deltaY * -0.01);
+    container.addEventListener("wheel", (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.metaKey || e.ctrlKey) {
+        this.fitZoom(this.zoom + e.deltaY * -0.01);
         this.transform();
       } else {
-        this.transform(event.deltaX, event.deltaY);
+        this.transform(e.deltaX, e.deltaY);
       }
     });
+
+    type Pos = { clientX: number; clientY: number };
+    const dragStart = ({ clientX, clientY }: Pos) => {
+      this.dragging = true;
+      this.dx = clientX;
+      this.dy = clientY;
+      container.style.cursor = "grabbing";
+    };
+
+    const dragEnd = () => {
+      this.dragging = false;
+      container.style.cursor = "default";
+    };
+
+    const drag = ({ clientX, clientY }: Pos) => {
+      if (this.dragging) {
+        this.transform(this.dx - clientX, this.dy - clientY);
+        this.dx = clientX;
+        this.dy = clientY;
+      }
+    };
+
+    container.addEventListener("mousedown", dragStart);
+    container.addEventListener("mouseup", dragEnd);
+    container.addEventListener("mousemove", drag);
+    container.addEventListener("touchstart", (e) => dragStart(e.touches[0]));
+    container.addEventListener("touchend", dragEnd);
+    container.addEventListener("touchmove", (e) => drag(e.touches[0]));
 
     this.fitBtn &&
       (this.fitBtn.onclick = () => {

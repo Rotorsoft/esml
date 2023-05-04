@@ -62,15 +62,6 @@ jobs:
             exit 0;
           fi
 
-          echo ">>> pulling..."
-          git config user.name "${USER}"
-          git config user.email "${EMAIL}"
-          git remote set-url origin "${GITHUB_URL}.git"
-          git pull origin "${GITHUB_REF}"
-
-          echo ">>> building..."
-          yarn build
-
           echo ">>> changelog..."
           msg="chore(release): ${TAG}"
           notes=$(echo "${{ steps.analyze.outputs.change-log }}" | awk '{gsub(/\\n/,"\n")}1')
@@ -87,18 +78,9 @@ jobs:
           git tag -a ${{ steps.analyze.outputs.next-tag }} HEAD -m "${msg}"
           HUSKY=0 git push --follow-tags origin "${GITHUB_REF}"
 
-          echo ">>> releasing..."
-          data=$(jq -n \
-            --arg tag "${{ steps.analyze.outputs.next-tag }}" \
-            --arg notes "${notes}" \
-            '{name: $tag, tag_name: $tag, body: $notes}')
-          curl -u ${USER}:${GITHUB_TOKEN} -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${GITHUB_REPO}/releases -d "${data}"
-
-          if [[ ! -z "${NPM_REGISTRY}" ]]; then
-            echo ">>> publishing..."
-            echo "//${NPM_REGISTRY}/:_authToken=${npm-token}" >> .npmrc
-            npm config set registry "https://${NPM_REGISTRY}"
-            npm publish --access public
-          fi
+          echo ">>> publishing..."
+          echo "//${NPM_REGISTRY}/:_authToken=${NPM_TOKEN}" >> .npmrc
+          npm config set registry "https://${NPM_REGISTRY}"
+          npm publish --access public
 
           echo "🚀 ${TAG} released succesfully! 🚀"

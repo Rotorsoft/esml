@@ -13,5 +13,6 @@ module.exports = {
       },
     ],
   ],
+  tagFormat: "@rotorsoft/esml-v${version}",
   preset: "angular", // the default preset to use for commit message parsing
 };

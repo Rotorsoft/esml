@@ -1,6 +1,6 @@
 {
   "name": "@rotorsoft/esml",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Event Storming Modeling Language",
   "author": "rotorsoft <rotorsoft@outlook.com>",
   "license": "MIT",
@@ -28,9 +28,8 @@
     "typescript": "^5.0.4"
   },
   "scripts": {
-    "fix-live-server": "npx crlf --set=LF node_modules/.bin/live-server",
     "rollup": "rollup -c --bundleConfigAsCjs rollup.config.js",
-    "start": "yarn rollup && live-server --port=5050 --open=docs/index.html",
+    "start": "npm run rollup && live-server --port=5050 --open=docs/index.html",
     "dev": "npx ts-node-dev --transpile-only --respawn -r tsconfig-paths/register ./src/index.ts",
     "test": "yarn jest",
     "build": "yarn && npx tsc"

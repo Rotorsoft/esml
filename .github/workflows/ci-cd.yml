@@ -61,6 +61,7 @@ jobs:
           git config --global user.email "rotorsoft@outlook.com"
           git config --global user.name "rotorsoft"
           git remote set-url origin "${GITHUB_URL}.git"
+          git pull origin master
 
       - name: release
         run: |
@@ -78,10 +79,11 @@ jobs:
           echo ">>> committing..."
           git add -A .
           git commit -am "${msg}"
+          git log
 
           echo ">>> pushing..."
           git tag -a ${{ steps.analyze.outputs.next-tag }} HEAD -m "${msg}"
-          git push --follow-tags origin master
+          git push origin master --follow-tags 
 
           echo ">>> authorizing npm..."
           npm config set registry "https://registry.npmjs.org"

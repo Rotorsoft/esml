@@ -57,10 +57,6 @@ jobs:
 
       - name: config
         run: |
-          echo ">>> authorizing npm..."
-          npm config set registry "https://registry.npmjs.org"
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-
           echo ">>> configuring git..."
           git config --global user.email "rotorsoft@outlook.com"
           git config --global user.name "rotorsoft"
@@ -69,6 +65,7 @@ jobs:
       - name: release
         run: |
           echo ">>> building..."
+          git pull
           yarn build
 
           echo ">>> changelog..."
@@ -86,6 +83,10 @@ jobs:
           echo ">>> pushing..."
           git tag -a ${{ steps.analyze.outputs.next-tag }} HEAD -m "${msg}"
           git push --follow-tags origin "${GITHUB_REF}"
+
+          echo ">>> authorizing npm..."
+          npm config set registry "https://registry.npmjs.org"
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
 
           echo ">>> publishing..."
           npm publish --access public

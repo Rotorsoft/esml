@@ -57,9 +57,3 @@ jobs:
         run: |
           npm run release
           echo "🚀 ${TAG} released succesfully! 🚀"
-
-      # - name: publish
-      #   run: |
-      #     npm config set registry "https://registry.npmjs.org"
-      #     echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-      #     npm publish --access public

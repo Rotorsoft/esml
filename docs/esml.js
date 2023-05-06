@@ -907,13 +907,14 @@
             if (found) {
                 if (found.visual !== visual)
                     error(`${id} as ${found.visual}`, visual);
-                return found;
+                if (visual !== "event")
+                    return found;
             }
             const node = {
                 id,
                 visual,
                 artifact,
-                context: context.id,
+                context: found?.context || context.id,
             };
             nodes.set(id, node);
             return node;
@@ -929,7 +930,7 @@
                     (rel?.type || visual) === "context" && error("component", id);
                     !visual && !rel && error("declared component", id);
                     const ref_node = newNode(context, id, visual || rel.type, artifacts[visual || rel.type]);
-                    if (ref_node.context === context.id || ref_node.visual === "event") {
+                    if (ref_node.context === context.id) {
                         const edge = artifact.edge(node, ref_node);
                         edge && context.edges.add(edge);
                         context.nodes.set(id, ref_node);
@@ -983,6 +984,7 @@
                         if (edge) {
                             const key = `${producer.id}->${consumer.id}`;
                             if (!ctxedges.has(key)) {
+                                console.log(key, node.id, ref_node.id);
                                 root.edges.add(edge);
                                 ctxedges.add(key);
                             }

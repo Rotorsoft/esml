@@ -165,13 +165,13 @@ export const parse = (source: string): Node => {
     const found = nodes.get(id);
     if (found) {
       if (found.visual !== visual) error(`${id} as ${found.visual}`, visual);
-      return found;
+      if (visual !== "event") return found;
     }
     const node = {
       id,
       visual,
       artifact,
-      context: context.id,
+      context: found?.context || context.id,
     };
     nodes.set(id, node);
     return node;
@@ -193,8 +193,8 @@ export const parse = (source: string): Node => {
           visual || rel!.type,
           artifacts[(visual as Type) || rel!.type]
         );
-        // ignore when ref found in another context, but not events
-        if (ref_node.context === context.id || ref_node.visual === "event") {
+        // ignore when ref found in another context
+        if (ref_node.context === context.id) {
           const edge = artifact.edge(node, ref_node);
           edge && context.edges.add(edge);
           context.nodes.set(id, ref_node);

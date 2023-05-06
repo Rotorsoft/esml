@@ -5,20 +5,23 @@ export class System implements Artifact {
   grammar() {
     return { handles: "command", emits: "event" } as Grammar;
   }
-  edge(node: Node, message: Node) {
-    return message.visual === "command"
+  edge(node: Node, ref: Node) {
+    return ref.visual === "command"
       ? {
-          start: message.id,
+          start: ref.id,
           end: node.id,
           dashed: false,
           arrow: true,
         }
       : {
           start: node.id,
-          end: message.id,
+          end: ref.id,
           dashed: false,
           arrow: false,
         };
+  }
+  ref() {
+    return undefined;
   }
   layout(node: Node, config: Config) {
     return rectangle(node, config);

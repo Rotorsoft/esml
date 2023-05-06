@@ -7,18 +7,9 @@ interface Style {
 }
 export interface Renderable {
   style: Style;
-  renderShape: (
-    node: Node,
-    g: Graphics,
-    x: number,
-    y: number,
-    config: Config
-  ) => void;
+  renderShape: (node: Node, g: Graphics, config: Config) => void;
   renderContents: (node: Node, g: Graphics, config: Config) => void;
 }
-
-type LineCap = "butt" | "round" | "square";
-type LineJoin = "bevel" | "round" | "miter";
 
 interface Chainable {
   stroke(): Chainable;
@@ -27,9 +18,6 @@ interface Chainable {
 }
 
 export interface Graphics {
-  width(): number;
-  height(): number;
-  clear(): void;
   circle(center: Vector, r: number): Chainable;
   ellipse(
     center: Vector,
@@ -46,16 +34,20 @@ export interface Graphics {
   setFontFamily(family: string): void;
   setFont(
     size: number,
-    weight: "bold" | "normal",
-    style: "italic" | "normal"
+    weight?: "bold" | "normal",
+    style?: "italic" | "normal"
   ): void;
   strokeStyle(stroke: string): void;
   fillStyle(fill: string): void;
   arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): void;
   beginPath(): Chainable;
-  fillText(text: string, x: number, y: number): Chainable;
-  lineCap(cap: LineCap): void;
-  lineJoin(join: LineJoin): void;
+  fillText(
+    text: string,
+    x: number,
+    y: number,
+    fill: string,
+    dy?: string
+  ): Chainable;
   lineTo(x: number, y: number): Chainable;
   lineWidth(w: number): void;
   moveTo(x: number, y: number): void;
@@ -65,6 +57,6 @@ export interface Graphics {
   textAlign(a: string): void;
   translate(dx: number, dy: number): void;
   serialize(): string;
-  group(): void;
+  group(x: number, y: number): void;
   ungroup(): void;
 }

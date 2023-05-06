@@ -48,7 +48,8 @@ export function svg(): Graphics {
     | "rect"
     | "text"
     | "desc"
-    | "title";
+    | "title"
+    | "tspan";
   class Element {
     constructor(
       name: SvgElement,
@@ -112,12 +113,14 @@ export function svg(): Graphics {
   }
 
   class GroupElement extends Element {
-    constructor(parent: GroupElement) {
-      super("g", {}, parent);
-    }
-    elideEmpty = true;
     attr: SvgAttr = {};
     data: Record<string, string> = {};
+
+    constructor(parent: GroupElement, dx = 0, dy = 0) {
+      super("g", {}, parent);
+      this.attr.transform = `translate(${dx}, ${dy})`;
+    }
+    elideEmpty = true;
     group() {
       return this;
     }
@@ -170,21 +173,14 @@ export function svg(): Graphics {
   }
 
   return {
-    group: function () {
-      const node = new GroupElement(current);
+    group: function (dx: number, dy: number) {
+      const node = new GroupElement(current, dx, dy);
       current.children.push(node);
       current = node;
     },
     ungroup: function () {
       if (current.parent) current = current.parent;
     },
-    width: function () {
-      return 0;
-    },
-    height: function () {
-      return 0;
-    },
-    clear: function () {},
     circle: function (p: Vector, r: number) {
       return el("circle", { r: r, cx: p.x, cy: p.y });
     },
@@ -223,12 +219,12 @@ export function svg(): Graphics {
     },
     setFont: function (
       size: number,
-      weight: "bold" | "normal",
-      style: "italic" | "normal"
+      weight?: "bold" | "normal",
+      style?: "italic" | "normal"
     ): void {
-      current.attr!["font-size"] = size + "pt";
-      current.attr!["font-weight"] = weight;
-      current.attr!["font-style"] = style;
+      current.attr!["font-size"] = size + "px";
+      weight && (current.attr!["font-weight"] = weight);
+      style && (current.attr!["font-style"] = style);
     },
     strokeStyle: function (stroke) {
       current.attr!.stroke = stroke;
@@ -246,26 +242,16 @@ export function svg(): Graphics {
       inPathBuilderMode = true;
       return el("path", { d: "" });
     },
-    fillText: function (text, x, y) {
-      return el(
-        "text",
-        {
-          x,
-          y,
-          stroke: "none",
-          "text-anchor":
-            getDefined(current, (e) => e.attr!["text-align"]) === "center"
-              ? "middle"
-              : "",
-        },
-        text
-      );
-    },
-    lineCap: function (cap) {
-      current.attr!["stroke-linecap"] = cap;
-    },
-    lineJoin: function (join) {
-      current.attr!["stroke-linejoin"] = join;
+    fillText: function (text, x, y, fill, dy) {
+      const attr = { x, y, fill, stroke: fill } as Record<
+        string,
+        string | number
+      >;
+      const anchor =
+        getDefined(current, (e) => e.attr!["text-align"]) === "center";
+      anchor && (attr["text-anchor"] = "middle");
+      dy && (attr["dy"] = dy);
+      return el("text", attr, text);
     },
     lineTo: function (x, y) {
       if (inPathBuilderMode)

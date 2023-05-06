@@ -152,11 +152,13 @@ export class Canvas extends EventEmitter {
   }
 
   public render({ code, x, y, zoom }: State): ParseError | undefined {
-    const { error, svg, width, height } = esml(code, this.SCALE);
+    const { error, svg } = esml(code, this.SCALE);
     if (error) return error;
-    this.w = width!;
-    this.h = height!;
     this.svg.innerHTML = svg!;
+    const root = this.svg.firstElementChild;
+    const rootBox = root?.getBoundingClientRect();
+    this.w = Math.floor(rootBox?.width!);
+    this.h = Math.floor(rootBox?.height!);
     if (x && y && zoom) {
       this.x = x;
       this.y = y;

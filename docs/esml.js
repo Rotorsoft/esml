@@ -28,14 +28,12 @@
         node.y = 0;
         node.width = config.scale;
         node.height = config.scale;
-        node.offset = { x: 8, y: 8 };
     };
     const rectangle = (node, config) => {
         node.x = 0;
         node.y = 0;
         node.width = config.scale * 2;
         node.height = config.scale;
-        node.offset = { x: 8, y: 8 };
     };
 
     const Types = [
@@ -49,25 +47,28 @@
     ];
     const Edges = ["invokes", "handles", "emits", "includes"];
     const Keywords = [...Types, ...Edges];
+    const isContextNode = (node) => "nodes" in node;
 
     class Actor {
         grammar() {
             return { invokes: "command" };
         }
-        edge(node, message) {
+        edge(node, ref) {
             return {
                 start: node.id,
-                end: message.id,
+                end: ref.id,
                 dashed: false,
                 arrow: true,
             };
+        }
+        ref() {
+            return undefined;
         }
         layout(node, config) {
             node.x = 0;
             node.y = 0;
             node.width = config.scale / 2;
             node.height = config.scale / 2;
-            node.offset = { x: 8, y: config.scale / 3 };
         }
     }
 
@@ -75,20 +76,23 @@
         grammar() {
             return { handles: "command", emits: "event" };
         }
-        edge(node, message) {
-            return message.visual === "command"
+        edge(node, ref) {
+            return ref.visual === "command"
                 ? {
-                    start: message.id,
+                    start: ref.id,
                     end: node.id,
                     dashed: false,
                     arrow: true,
                 }
                 : {
                     start: node.id,
-                    end: message.id,
+                    end: ref.id,
                     dashed: false,
                     arrow: false,
                 };
+        }
+        ref() {
+            return undefined;
         }
         layout(node, config) {
             return rectangle(node, config);
@@ -141,69 +145,67 @@
         grammar() {
             return { includes: "artifacts" };
         }
-        edge(node, message, dashed = false, arrow = true) {
-            return { start: node.id, end: message.id, dashed, arrow };
+        edge(node, ref, dashed = false, arrow = true) {
+            return { start: node.id, end: ref.id, dashed, arrow };
+        }
+        ref() {
+            return undefined;
         }
         layout(node, config) {
-            if (node.nodes.size) {
-                const g = new graphre__namespace.Graph({
-                    multigraph: true,
-                });
-                g.setGraph({
-                    nodesep: config.spacing,
-                    edgesep: config.spacing,
-                    ranksep: config.spacing,
-                    acyclicer: "greedy",
-                    rankdir: "LR",
-                    ranker: "network-simplex",
-                });
-                node.nodes.forEach((n) => {
-                    (n.artifact?.layout || square)(n, config);
-                    n.width = n.width + 2 * config.edgeMargin;
-                    n.height = n.height + 2 * config.edgeMargin;
-                });
-                node.nodes.forEach(({ id, width, height }) => g.setNode(id, { width, height }));
-                const edges = [...node.edges.values()].map((edge, index) => {
-                    g.setEdge(edge.start, edge.end, {}, `${index}`);
-                    return edge;
-                });
-                graphre__namespace.layout(g);
-                node.nodes.forEach((n) => {
-                    const gn = g.node(n.id);
-                    n.x = gn.x;
-                    n.y = gn.y;
-                });
-                const r = [0, 0, 0, 0];
-                for (const e of g.edges()) {
-                    const ge = g.edge(e);
-                    const ne = edges[parseInt(e.name)];
-                    const start = node.nodes.get(e.v);
-                    const end = node.nodes.get(e.w);
-                    ne.path = [start, ...ge.points, end].map((n) => ({
-                        x: n.x,
-                        y: n.y,
-                    }));
-                    ge.points.forEach(({ x, y }) => {
-                        r[0] = r[0] < x ? r[0] : x;
-                        r[1] = r[1] > x ? r[1] : x;
-                        r[2] = r[2] < y ? r[2] : y;
-                        r[3] = r[3] < y ? r[3] : y;
+            if (isContextNode(node)) {
+                if (node.nodes.size) {
+                    const g = new graphre__namespace.Graph({
+                        multigraph: true,
                     });
+                    g.setGraph({
+                        nodesep: config.spacing,
+                        edgesep: config.spacing,
+                        ranksep: config.spacing,
+                        acyclicer: "greedy",
+                        rankdir: "LR",
+                        ranker: "network-simplex",
+                    });
+                    node.nodes.forEach((n) => (n.artifact?.layout || square)(n, config));
+                    node.nodes.forEach(({ id, width, height }) => g.setNode(id, { width, height }));
+                    const edges = [...node.edges.values()].map((edge, index) => {
+                        g.setEdge(edge.start, edge.end, {}, `${index}`);
+                        return edge;
+                    });
+                    graphre__namespace.layout(g);
+                    node.nodes.forEach((n) => {
+                        const gn = g.node(n.id);
+                        n.x = gn.x;
+                        n.y = gn.y;
+                    });
+                    const r = [0, 0, 0, 0];
+                    for (const e of g.edges()) {
+                        const ge = g.edge(e);
+                        const ne = edges[parseInt(e.name)];
+                        const start = node.nodes.get(e.v);
+                        const end = node.nodes.get(e.w);
+                        ne.path = [start, ...ge.points, end].map((n) => ({
+                            x: n.x,
+                            y: n.y,
+                        }));
+                        ge.points.forEach(({ x, y }) => {
+                            r[0] = r[0] < x ? r[0] : x;
+                            r[1] = r[1] > x ? r[1] : x;
+                            r[2] = r[2] < y ? r[2] : y;
+                            r[3] = r[3] < y ? r[3] : y;
+                        });
+                    }
+                    const graph = g.graph();
+                    const width = Math.max(graph.width, r[1] - r[0]);
+                    const height = Math.max(graph.height, r[3] - r[2]);
+                    node.width = width + 2 * config.padding;
+                    node.height = height + 2 * config.padding;
                 }
-                const graph = g.graph();
-                const width = Math.max(graph.width, r[1] - r[0]);
-                const height = Math.max(graph.height, r[3] - r[2]);
-                node.width = width + 2 * (config.gutter + config.padding);
-                node.height =
-                    height + config.fontSize + 2 * (config.gutter + config.padding);
-                node.offset = { x: config.padding - r[0], y: config.padding - r[2] };
-            }
-            else {
-                node.width =
-                    splitId(node.id).join(" ").length * config.fontSize +
-                        2 * config.padding;
-                node.height = config.fontSize + 2 * config.padding;
-                node.offset = { x: config.padding, y: config.padding };
+                else {
+                    node.width =
+                        config.padding * 2 +
+                            splitId(node.id).join(" ").length * config.fontSize;
+                    node.height = config.padding * 3 + config.fontSize;
+                }
             }
         }
     }
@@ -212,20 +214,18 @@
         grammar() {
             return { handles: "event", invokes: "command" };
         }
-        edge(node, message) {
-            return message.visual === "event"
-                ? {
-                    start: message.id,
+        edge(node, ref) {
+            if (ref.visual === "event")
+                return {
+                    start: ref.id,
                     end: node.id,
                     dashed: true,
                     arrow: true,
-                }
-                : {
-                    start: node.id,
-                    end: message.id,
-                    dashed: false,
-                    arrow: true,
                 };
+        }
+        ref(node, ref) {
+            if (ref.visual === "command")
+                return { id: node.id, refid: ref.id };
         }
         layout(node, config) {
             return rectangle(node, config);
@@ -236,20 +236,18 @@
         grammar() {
             return { handles: "event", invokes: "command" };
         }
-        edge(node, message) {
-            return message.visual === "event"
-                ? {
-                    start: message.id,
+        edge(node, ref) {
+            if (ref.visual === "event")
+                return {
+                    start: ref.id,
                     end: node.id,
                     dashed: true,
                     arrow: true,
-                }
-                : {
-                    start: node.id,
-                    end: message.id,
-                    dashed: false,
-                    arrow: true,
                 };
+        }
+        ref(node, ref) {
+            if (ref.visual === "command")
+                return { id: node.id, refid: ref.id };
         }
         layout(node, config) {
             return rectangle(node, config);
@@ -260,13 +258,16 @@
         grammar() {
             return { handles: "event" };
         }
-        edge(node, message) {
+        edge(node, ref) {
             return {
-                start: message.id,
+                start: ref.id,
                 end: node.id,
                 dashed: true,
                 arrow: true,
             };
+        }
+        ref() {
+            return undefined;
         }
         layout(node, config) {
             return rectangle(node, config);
@@ -277,20 +278,23 @@
         grammar() {
             return { handles: "command", emits: "event" };
         }
-        edge(node, message) {
-            return message.visual === "command"
+        edge(node, ref) {
+            return ref.visual === "command"
                 ? {
-                    start: message.id,
+                    start: ref.id,
                     end: node.id,
                     dashed: false,
                     arrow: true,
                 }
                 : {
                     start: node.id,
-                    end: message.id,
+                    end: ref.id,
                     dashed: false,
                     arrow: false,
                 };
+        }
+        ref() {
+            return undefined;
         }
         layout(node, config) {
             return rectangle(node, config);
@@ -307,13 +311,22 @@
         system: new System(),
     };
 
-    const sizeText = (node) => {
+    const pickFontSize = (words, w) => {
+        const wordLengths = words.map((w) => w.length);
+        const maxWord = wordLengths.sort().at(-1) || 0;
+        const pairLenghts = wordLengths.map((l, i) => (i ? wordLengths[i - 1] + l + 1 : l)) || 0;
+        const maxPair = pairLenghts.sort().at(-1) || 0;
+        const minSize = Math.floor(w / 8);
+        const size1 = Math.max(Math.floor(w / maxWord), minSize);
+        const size2 = Math.max(Math.floor(w / maxPair), minSize);
+        return Math.floor(Math.min(size1, size2, 30));
+    };
+    const sizeText = (node, w, h) => {
         const words = splitId(node.id);
-        const maxWord = words.reduce((max, word) => Math.max(max, word.length), 0);
-        let fontSize = Math.max(Math.min(Math.ceil(node.width / maxWord), 24), 8);
-        while (fontSize > 8) {
-            const maxWidth = Math.floor(node.width / fontSize);
-            const maxHeight = Math.floor(node.height / fontSize);
+        let fontSize = pickFontSize(words, w);
+        while (fontSize > 5) {
+            const maxWidth = Math.floor(w / fontSize);
+            const maxHeight = Math.floor(h / fontSize);
             const lines = [];
             let line = words[0];
             let n = 1;
@@ -327,7 +340,7 @@
                     line = line.concat(line.length ? " " : "", word);
             }
             lines.push(line);
-            if (n === words.length && lines.length < maxHeight)
+            if (n === words.length && lines.length <= maxHeight)
                 return {
                     lines,
                     fontSize,
@@ -339,15 +352,24 @@
             fontSize,
         };
     };
-    const renderLines = (lines, g, fontSize, width, height, padding) => {
-        g.setFont(fontSize, "normal", "normal");
-        g.textAlign("center");
-        const lineHeight = fontSize * 1.15;
-        const topMargin = (fontSize + height - lines.length * lineHeight) / 2;
-        const x = width / 2 - padding;
+    const renderName = (node, g, config, options = { fit: true }) => {
+        const style = renderable(node.visual).style;
+        const width = options.width || node.width || 0;
+        const height = options.height || node.height || 0;
+        const { lines, fontSize } = options.fit
+            ? sizeText(node, width * config.font.widthScale, height)
+            : {
+                lines: splitId(node.id),
+                fontSize: options.fontSize || config.fontSize,
+            };
+        g.setFont(fontSize);
+        const x = options.x || Math.floor(width / 2);
+        const y = options.y || Math.floor(height / 2);
+        const m = Math.floor(lines.length / 2);
+        const h = config.font.heightScale;
+        const o = lines.length % 2 ? h : h * 2;
         lines.forEach((line, i) => {
-            const y = topMargin + i * lineHeight;
-            g.fillText(line, x, y);
+            g.fillText(line, x, y, style.stroke, `${(i - m) * 1.2 + o}em`);
         });
     };
     const getPath = (edge, config) => {
@@ -376,37 +398,59 @@
         const path = getPath(edge, config);
         g.strokeStyle(config.stroke);
         if (edge.dashed) {
+            g.group(0, 0);
             var dash = Math.max(4, 2 * config.lineWidth);
-            g.group();
-            {
-                g.setLineDash([dash, dash]);
-                g.path(path).stroke();
-            }
+            g.setLineDash([dash, dash]);
+            g.path(path).stroke();
             g.ungroup();
         }
         else
             g.path(path).stroke();
         renderArrow(edge, g, config);
     };
+    const renderRef = (node, ref, g, config) => {
+        const x = Math.floor(ref.x - ref.width / 2 - config.scale * 0.2);
+        const y = Math.floor(ref.y + config.scale * 0.3);
+        const w = Math.floor(config.scale);
+        const h = Math.floor(config.scale * 0.4);
+        g.fillStyle(COLORS[node.visual]);
+        const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
+        g.rect(x, y, w, h, style).fill();
+        renderName(node, g, config, {
+            fit: true,
+            x: x + w / 2,
+            y: y + h / 2,
+            width: w,
+            height: h,
+        });
+    };
     const context = {
         style: {
-            stroke: "#CCCCCC",
+            stroke: "#AAAAAA",
             fill: "white",
         },
-        renderShape: (node, g, x, y) => {
-            node.id && g.rect(x, y, node.width, node.height).fillAndStroke();
+        renderShape: (node, g) => {
+            g.rect(0, 0, node.width, node.height).fillAndStroke();
         },
         renderContents: (node, g, config) => {
-            g.setFont(config.fontSize, "normal", "normal");
-            g.textAlign("left");
-            const x = 0;
-            const y = config.fontSize;
-            g.fillText(splitId(node.id).join(" "), x, y);
-            g.group();
-            g.translate(config.gutter, config.gutter);
-            node.edges.forEach((r) => renderEdge(r, g, config));
-            node.nodes.forEach((n) => renderNode(n, g, config));
-            g.ungroup();
+            if (isContextNode(node)) {
+                if (node.id) {
+                    const words = splitId(node.id);
+                    g.fillText(words.join(" "), config.fontSize * words.length, -config.fontSize, context.style.stroke);
+                }
+                g.group(config.padding, config.padding);
+                {
+                    g.textAlign("center");
+                    node.edges.forEach((e) => renderEdge(e, g, config));
+                    node.nodes.forEach((n) => renderNode(n, g, config));
+                    node.refs.forEach((r) => {
+                        const rn = node.nodes.get(r.id);
+                        const rr = node.nodes.get(r.refid);
+                        rn && rr && renderRef(rn, rr, g, config);
+                    });
+                }
+                g.ungroup();
+            }
         },
     };
     const actor = {
@@ -414,29 +458,33 @@
             stroke: "#555555",
             fill: "white",
         },
-        renderShape: (node, g, x, y, config) => {
-            const a = config.padding / 2;
+        renderShape: ({ x, y, width, height }, g, config) => {
+            const padding = config.scale / 10;
+            const a = padding / 2;
             const yp = y + a * 4;
-            const faceCenter = { x: node.x, y: yp - a };
+            const faceCenter = { x: x, y: yp - a };
+            g.translate(width / 4, -height / 2);
             g.circle(faceCenter, a).stroke();
             g.path([
-                { x: node.x, y: yp },
-                { x: node.x, y: yp + 2 * a },
+                { x: x, y: yp },
+                { x: x, y: yp + 2 * a },
             ]).stroke();
             g.path([
-                { x: node.x - a, y: yp + a },
-                { x: node.x + a, y: yp + a },
+                { x: x - a, y: yp + a },
+                { x: x + a, y: yp + a },
             ]).stroke();
             g.path([
-                { x: node.x - a, y: yp + a + config.padding },
-                { x: node.x, y: yp + config.padding },
-                { x: node.x + a, y: yp + a + config.padding },
+                { x: x - a, y: yp + a + padding },
+                { x: x, y: yp + padding },
+                { x: x + a, y: yp + a + padding },
             ]).stroke();
         },
-        renderContents: (node, g, config) => {
-            const lines = splitId(node.id);
-            renderLines(lines, g, config.fontSize, node.width, node.height, config.padding);
-        },
+        renderContents: (node, g, config) => renderName(node, g, config, {
+            fit: false,
+            x: node.x,
+            y: node.y + node.height,
+            fontSize: config.fontSize * 0.8,
+        }),
     };
     const COLORS = {
         context: "white",
@@ -454,14 +502,11 @@
             stroke: "#555555",
             fill: COLORS[visual],
         },
-        renderShape: (node, g, x, y) => {
+        renderShape: (node, g) => {
             const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
-            g.rect(x, y, node.width, node.height, style).fill();
+            g.rect(0, 0, node.width, node.height, style).fill();
         },
-        renderContents: (node, g, config) => {
-            const { lines, fontSize } = sizeText(node);
-            renderLines(lines, g, fontSize, node.width, node.height, config.padding);
-        },
+        renderContents: renderName,
     });
     const renderable = (visual) => {
         if (visual === "context")
@@ -472,51 +517,24 @@
     };
     const renderNode = (node, g, config) => {
         const { style, renderShape, renderContents } = renderable(node.visual);
-        const x = node.x - node.width / 2;
-        const y = node.y - node.height / 2;
-        g.group();
+        const dx = Math.floor(node.x - node.width / 2);
+        const dy = Math.floor(node.y - node.height / 2);
+        g.group(dx, dy);
         {
             g.setData("name", node.id);
-            g.group();
-            {
-                g.fillStyle(style.fill);
-                g.strokeStyle(style.stroke);
-                renderShape(node, g, x, y, config);
-            }
-            g.ungroup();
-            g.group();
-            {
-                node.id && g.translate(x, y);
-                g.group();
-                {
-                    g.translate(node.offset.x, node.offset.y);
-                    g.fillStyle(style.stroke);
-                    renderContents(node, g, config);
-                }
-                g.ungroup();
-            }
-            g.ungroup();
+            g.fillStyle(style.fill);
+            renderShape(node, g, config);
+            renderContents(node, g, config);
         }
         g.ungroup();
     };
     const renderRoot = (root, g, config) => {
-        g.group();
-        {
-            g.clear();
-            g.group();
-            {
-                g.strokeStyle("transparent");
-                g.fillStyle(config.background);
-                g.rect(0, 0, root.width, root.height).fill();
-            }
-            g.ungroup();
-            g.setFontFamily(config.font);
-            g.lineWidth(config.lineWidth);
-            g.lineJoin("round");
-            g.lineCap("round");
-            renderNode(root, g, config);
-        }
-        g.ungroup();
+        g.setData("name", "root");
+        g.setFontFamily(config.font.family);
+        g.setFont(config.fontSize);
+        g.textAlign("left");
+        g.lineWidth(config.lineWidth);
+        context.renderContents(root, g, config);
     };
 
     function toAttrString(obj) {
@@ -583,11 +601,12 @@
                 getter(syntheticRoot));
         }
         class GroupElement extends Element {
-            constructor(parent) {
+            constructor(parent, dx = 0, dy = 0) {
                 super("g", {}, parent);
-                this.elideEmpty = true;
                 this.attr = {};
                 this.data = {};
+                this.elideEmpty = true;
+                this.attr.transform = `translate(${dx}, ${dy})`;
             }
             group() {
                 return this;
@@ -621,8 +640,8 @@
             return element;
         }
         return {
-            group: function () {
-                const node = new GroupElement(current);
+            group: function (dx, dy) {
+                const node = new GroupElement(current, dx, dy);
                 current.children.push(node);
                 current = node;
             },
@@ -630,13 +649,6 @@
                 if (current.parent)
                     current = current.parent;
             },
-            width: function () {
-                return 0;
-            },
-            height: function () {
-                return 0;
-            },
-            clear: function () { },
             circle: function (p, r) {
                 return el("circle", { r: r, cx: p.x, cy: p.y });
             },
@@ -673,9 +685,9 @@
                 current.attr["font-family"] = family;
             },
             setFont: function (size, weight, style) {
-                current.attr["font-size"] = size + "pt";
-                current.attr["font-weight"] = weight;
-                current.attr["font-style"] = style;
+                current.attr["font-size"] = size + "px";
+                weight && (current.attr["font-weight"] = weight);
+                style && (current.attr["font-style"] = style);
             },
             strokeStyle: function (stroke) {
                 current.attr.stroke = stroke;
@@ -694,21 +706,12 @@
                 inPathBuilderMode = true;
                 return el("path", { d: "" });
             },
-            fillText: function (text, x, y) {
-                return el("text", {
-                    x,
-                    y,
-                    stroke: "none",
-                    "text-anchor": getDefined(current, (e) => e.attr["text-align"]) === "center"
-                        ? "middle"
-                        : "",
-                }, text);
-            },
-            lineCap: function (cap) {
-                current.attr["stroke-linecap"] = cap;
-            },
-            lineJoin: function (join) {
-                current.attr["stroke-linejoin"] = join;
+            fillText: function (text, x, y, fill, dy) {
+                const attr = { x, y, fill, stroke: fill };
+                const anchor = getDefined(current, (e) => e.attr["text-align"]) === "center";
+                anchor && (attr["text-anchor"] = "middle");
+                dy && (attr["dy"] = dy);
+                return el("text", attr, text);
             },
             lineTo: function (x, y) {
                 if (inPathBuilderMode)
@@ -759,11 +762,7 @@
         const g = svg();
         artifacts.context.layout(root, config);
         renderRoot(root, g, config);
-        return {
-            svg: g.serialize(),
-            width: root.width,
-            height: root.height,
-        };
+        return g.serialize();
     };
 
     class ParseError extends Error {
@@ -896,17 +895,20 @@
             if (statement && statement.type !== "context" && !statement.context) {
                 statement.context = context.id;
                 const artifact = artifacts[statement.type];
-                const anode = { id, visual: statement.type, artifact };
+                const node = { id, visual: statement.type, artifact };
                 statement.rels.forEach((visual, id) => {
                     const rel = statements.get(id);
                     (rel?.type || visual) === "context" && error("component", id);
                     !visual && !rel && error("declared component", id);
-                    const mnode = { id, visual: visual || rel.type };
-                    context.edges.add(artifact.edge(anode, mnode));
-                    context.nodes.set(id, mnode);
-                    trackCtx(context, anode, mnode);
+                    const ref_node = { id, visual: visual || rel.type };
+                    const edge = artifact.edge(node, ref_node);
+                    edge && context.edges.add(edge);
+                    const ref = artifact.ref(node, ref_node);
+                    ref && context.refs.add(ref);
+                    context.nodes.set(id, ref_node);
+                    trackCtx(context, node, ref_node);
                 });
-                context.nodes.set(id, anode);
+                context.nodes.set(id, node);
             }
         };
         let type = nextToken();
@@ -923,6 +925,9 @@
             artifact: artifacts.context,
             nodes: new Map(),
             edges: new Set(),
+            refs: new Set(),
+            x: 0,
+            y: 0,
         });
         const root = context();
         statements.forEach((statement, id) => {
@@ -934,14 +939,15 @@
         });
         const global = context("global");
         statements.forEach((statement, id) => statement.type !== "context" && !statement.context && addNode(global, id));
-        global.nodes?.size && root.nodes.set("global", global);
+        global.nodes.size && root.nodes.set("global", global);
         _msgCtxs.forEach((x) => {
             if (x.size > 1) {
                 const producers = [...x.values()].filter((c) => c.producer);
                 const consumers = [...x.values()].filter((c) => !c.producer);
                 producers.forEach((p) => {
                     consumers.forEach((c) => {
-                        root.edges.add(artifacts.context.edge(p.context, c.context, p.visual === "event"));
+                        const edge = artifacts.context.edge(p.context, c.context, p.visual === "event");
+                        edge && root.edges.add(edge);
                     });
                 });
             }
@@ -952,22 +958,20 @@
     const esml = (code, scale) => {
         const config = {
             arrowSize: 0.5,
-            gutter: 20,
-            edgeMargin: 0,
             gravity: Math.round(+1),
             background: "#f8f9fa",
-            font: "Handlee,Caveat,Inconsolata,Monospace",
-            fontSize: scale / 10,
+            font: { family: "Handlee", widthScale: 1.7, heightScale: 0.4 },
+            fontSize: 12,
             leading: 1.25,
             lineWidth: 1,
-            padding: 8,
+            padding: 12,
             spacing: 40,
-            stroke: "#CCCCCC",
+            stroke: "#DDDDDD",
             scale,
         };
         try {
             const root = parse(code);
-            return renderSvg(root, config);
+            return { svg: renderSvg(root, config) };
         }
         catch (error) {
             return { error };
@@ -1067,12 +1071,14 @@
             }
         }
         render({ code, x, y, zoom }) {
-            const { error, svg, width, height } = esml(code, this.SCALE);
+            const { error, svg } = esml(code, this.SCALE);
             if (error)
                 return error;
-            this.w = width;
-            this.h = height;
             this.svg.innerHTML = svg;
+            const root = this.svg.firstElementChild;
+            const rootBox = root?.getBoundingClientRect();
+            this.w = Math.floor(rootBox?.width);
+            this.h = Math.floor(rootBox?.height);
             if (x && y && zoom) {
                 this.x = x;
                 this.y = y;

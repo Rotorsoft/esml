@@ -2,13 +2,11 @@ import { Vector } from "../utils";
 export interface Config {
   padding: number;
   stroke: string;
-  font: string;
+  font: { family: string; widthScale: number; heightScale: number };
   leading: number;
   fontSize: number;
   lineWidth: number;
-  gutter: number;
   background: string;
-  edgeMargin: number;
   gravity: number;
   spacing: number;
   arrowSize: number;
@@ -41,7 +39,13 @@ export type Grammar = { [key in EdgeType]?: Message | "artifacts" };
 export interface Artifact {
   grammar: () => Grammar;
   layout: (node: Node, config: Config) => void;
-  edge: (node: Node, message: Node, dashed?: boolean, arrow?: boolean) => Edge;
+  edge: (
+    node: Node,
+    ref: Node,
+    dashed?: boolean,
+    arrow?: boolean
+  ) => Edge | undefined;
+  ref: (node: Node, ref: Node) => Ref | undefined;
 }
 
 export interface Edge {
@@ -56,6 +60,11 @@ export interface Edge {
   height?: number;
 }
 
+export interface Ref {
+  id: string;
+  refid: string;
+}
+
 export interface Node {
   id: string;
   visual: Visual;
@@ -64,7 +73,14 @@ export interface Node {
   y?: number;
   width?: number;
   height?: number;
-  offset?: { x: number; y: number };
-  nodes?: Map<string, Node>;
-  edges?: Set<Edge>;
 }
+
+export interface ContextNode extends Node {
+  visual: "context";
+  nodes: Map<string, Node>;
+  edges: Set<Edge>;
+  refs: Set<Ref>;
+}
+
+export const isContextNode = (node: Node): node is ContextNode =>
+  "nodes" in node;

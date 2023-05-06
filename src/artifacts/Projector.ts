@@ -5,13 +5,16 @@ export class Projector implements Artifact {
   grammar() {
     return { handles: "event" } as Grammar;
   }
-  edge(node: Node, message: Node) {
+  edge(node: Node, ref: Node) {
     return {
-      start: message.id,
+      start: ref.id,
       end: node.id,
       dashed: true,
       arrow: true,
     };
+  }
+  ref() {
+    return undefined;
   }
   layout(node: Node, config: Config) {
     return rectangle(node, config);

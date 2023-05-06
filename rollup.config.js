@@ -1,5 +1,6 @@
 import { nodeResolve } from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
+import serve from "rollup-plugin-serve";
 
 export default {
   input: "src/index.ts",
@@ -21,5 +22,10 @@ export default {
       sourceMap: true,
     }),
     nodeResolve(),
+    serve({
+      open: true,
+      contentBase: ["docs"],
+      port: 5050,
+    }),
   ],
 };

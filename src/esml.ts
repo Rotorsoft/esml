@@ -1,29 +1,31 @@
+import { Config } from "./artifacts";
 import { renderSvg } from "./graphics";
 import { ParseError, parse } from "./parser";
 
 export const esml = (
   code: string,
   scale: number
-): { error?: ParseError; svg?: string; width?: number; height?: number } => {
-  const config = {
+): { error?: ParseError; svg?: string } => {
+  const config: Config = {
     arrowSize: 0.5,
-    gutter: 20,
-    edgeMargin: 0,
     gravity: Math.round(+1),
     background: "#f8f9fa",
-    font: "Handlee,Caveat,Inconsolata,Monospace",
-    fontSize: scale / 10,
+    //font: { family: "Monospace", widthScale: 1.5 },
+    //font: { family: "Inconsolata", widthScale: 1.8 },
+    //font: { family: "Caveat", widthScale: 2.1 },
+    font: { family: "Handlee", widthScale: 1.7, heightScale: 0.4 },
+    fontSize: 12,
     leading: 1.25,
     lineWidth: 1,
-    padding: 8,
+    padding: 12,
     spacing: 40,
-    stroke: "#CCCCCC",
+    stroke: "#DDDDDD",
     scale,
   };
 
   try {
     const root = parse(code);
-    return renderSvg(root, config);
+    return { svg: renderSvg(root, config) };
   } catch (error: any) {
     return { error };
   }

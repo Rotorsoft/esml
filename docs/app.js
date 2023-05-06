@@ -15,7 +15,6 @@ const Store = () => {
   };
 
   const save = esml.debounce(({ code, x, y, zoom }) => {
-    console.log({ code, x, y, zoom });
     if (!code) return;
     x = _x = x || _x;
     y = _y = y || _y;

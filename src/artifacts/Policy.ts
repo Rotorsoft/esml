@@ -3,7 +3,11 @@ import { Artifact, Config, Grammar, Node } from "./types";
 
 export class Policy implements Artifact {
   grammar() {
-    return { handles: "event", invokes: "command" } as Grammar;
+    return {
+      handles: "event",
+      invokes: "command",
+      reads: "projector",
+    } as Grammar;
   }
   edge(node: Node, ref: Node) {
     if (ref.visual === "event")
@@ -15,7 +19,8 @@ export class Policy implements Artifact {
       };
   }
   ref(node: Node, ref: Node) {
-    if (ref.visual === "command") return { id: node.id, refid: ref.id };
+    if (ref.visual === "command") return { host: ref, target: node };
+    if (ref.visual === "projector") return { host: node, target: ref };
   }
   layout(node: Node, config: Config) {
     return rectangle(node, config);

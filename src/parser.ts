@@ -1,4 +1,5 @@
 import {
+  Artifact,
   ContextNode,
   EdgeType,
   Keywords,
@@ -51,10 +52,12 @@ export const parse = (source: string): Node => {
     throw new ParseError(expected, trimmed, parser.line, from, to);
   };
 
-  const statements: Map<
-    string,
-    { type: Type; rels: Map<string, Visual | undefined>; context?: string }
-  > = new Map();
+  type Statement = {
+    type: Type;
+    rels: Map<string, Visual | undefined>;
+    context?: string;
+  };
+  const statements: Map<string, Statement> = new Map();
 
   const BLANKS = ["\t", " ", "\n"];
   const skipBlanks = (): void => {
@@ -141,27 +144,37 @@ export const parse = (source: string): Node => {
     return token as Type;
   };
 
-  const producer = (av: Visual, mv: Visual) => {
-    const sys = av === "aggregate" || av === "system";
-    return sys ? mv === "event" : mv === "command";
-  };
+  const newContext = (id = ""): ContextNode => ({
+    id,
+    visual: "context",
+    artifact: artifacts.context,
+    nodes: new Map(),
+    edges: new Set(),
+    refs: new Map(),
+    x: 0,
+    y: 0,
+  });
 
-  const _msgCtxs = new Map<
-    string,
-    Map<string, { context: Node; visual: Visual; producer: boolean }>
-  >();
-  const trackCtx = (context: Node, anode: Node, mnode: Node) => {
-    let mm = _msgCtxs.get(mnode.id);
-    if (!mm) {
-      mm = new Map();
-      _msgCtxs.set(mnode.id, mm);
+  const nodes = new Map<string, Node>();
+  const newNode = (
+    context: ContextNode,
+    id: string,
+    visual: Visual,
+    artifact: Artifact
+  ): Node => {
+    const found = nodes.get(id);
+    if (found) {
+      if (found.visual !== visual) error(`${id} as ${found.visual}`, visual);
+      return found;
     }
-    const is_producer = producer(anode.visual, mnode.visual);
-    let ctx = mm.get(context.id);
-    if (!ctx) {
-      ctx = { context, visual: mnode.visual, producer: is_producer };
-      mm.set(context.id, ctx);
-    } else if (!ctx.producer && is_producer) ctx.producer = is_producer;
+    const node = {
+      id,
+      visual,
+      artifact,
+      context: context.id,
+    };
+    nodes.set(id, node);
+    return node;
   };
 
   const addNode = (context: ContextNode, id: string): void => {
@@ -169,18 +182,23 @@ export const parse = (source: string): Node => {
     if (statement && statement.type !== "context" && !statement.context) {
       statement.context = context.id;
       const artifact = artifacts[statement.type];
-      const node: Node = { id, visual: statement.type, artifact };
+      const node = newNode(context, id, statement.type, artifact);
       statement.rels.forEach((visual, id) => {
         const rel = statements.get(id);
         (rel?.type || visual) === "context" && error("component", id); // nested context
         !visual && !rel && error("declared component", id); // orphans
-        const ref_node: Node = { id, visual: visual || rel!.type };
-        const edge = artifact.edge(node, ref_node);
-        edge && context.edges.add(edge);
-        const ref = artifact.ref(node, ref_node);
-        ref && context.refs.add(ref);
-        context.nodes.set(id, ref_node);
-        trackCtx(context, node, ref_node);
+        const ref_node = newNode(
+          context,
+          id,
+          visual || rel!.type,
+          artifacts[(visual as Type) || rel!.type]
+        );
+        // ignore when ref found in another context, but not events
+        if (ref_node.context === context.id || ref_node.visual === "event") {
+          const edge = artifact.edge(node, ref_node);
+          edge && context.edges.add(edge);
+          context.nodes.set(id, ref_node);
+        }
       });
       context.nodes.set(id, node);
     }
@@ -193,48 +211,68 @@ export const parse = (source: string): Node => {
     } else error("keyword", type);
   }
 
-  const context = (id = ""): ContextNode => ({
-    id,
-    visual: "context",
-    artifact: artifacts.context,
-    nodes: new Map(),
-    edges: new Set(),
-    refs: new Set(),
-    x: 0,
-    y: 0,
-  });
-
-  const root = context();
+  const root = newContext();
   statements.forEach((statement, id) => {
     if (statement.type === "context") {
-      const node = context(id);
+      const node = newContext(id);
       statement.rels.forEach((_, id) => addNode(node, id));
       root.nodes.set(id, node);
     }
   });
 
   // put orphans in global context
-  const global = context("global");
-  statements.forEach(
-    (statement, id) =>
-      statement.type !== "context" && !statement.context && addNode(global, id)
-  );
+  const global = newContext("global");
+  statements.forEach((statement, id) => {
+    if (statement.type !== "context" && !statement.context) {
+      addNode(global, id);
+    }
+  });
   global.nodes.size && root.nodes.set("global", global);
 
-  // connect contexts with shared messages
-  _msgCtxs.forEach((x) => {
-    if (x.size > 1) {
-      const producers = [...x.values()].filter((c) => c.producer);
-      const consumers = [...x.values()].filter((c) => !c.producer);
-      producers.forEach((p) => {
-        consumers.forEach((c) => {
-          const edge = artifacts.context.edge(
-            p.context!,
-            c.context!,
-            p.visual === "event"
-          );
-          edge && root.edges.add(edge);
-        });
+  // connect the model!
+  const ctxedges = new Set<string>();
+  statements.forEach((statement, id) => {
+    if (statement.type !== "context") {
+      const artifact = artifacts[statement.type];
+      const node = nodes.get(id)!;
+      const ctx = node.context!;
+
+      statement.rels.forEach((visual, id) => {
+        const ref_node = nodes.get(id)!;
+        const ref_ctx = ref_node.context!;
+
+        // connect contexts
+        if (ctx !== ref_ctx) {
+          const ctx_node = root.nodes.get(ctx)!;
+          const ref_ctx_node = root.nodes.get(ref_ctx)!;
+          const sys =
+            statement.type === "aggregate" || statement.type === "system";
+          const is_consumer =
+            (visual === "event" && !sys) ||
+            (visual === "command" && sys) ||
+            (visual === "projector" && statement.type !== "projector");
+          const producer = is_consumer ? ref_ctx_node : ctx_node;
+          const consumer = is_consumer ? ctx_node : ref_ctx_node;
+          const edge = artifacts.context.edge(producer, consumer);
+          if (edge) {
+            const key = `${producer.id}->${consumer.id}`;
+            if (!ctxedges.has(key)) {
+              root.edges.add(edge);
+              ctxedges.add(key);
+            }
+          }
+        }
+
+        // connect refs
+        const ref = artifact.ref(node!, ref_node!);
+        if (ref) {
+          const context = root.nodes.get(ref.host.context!)! as ContextNode;
+          !context.refs.has(ref.host.id) &&
+            context.refs.set(ref.host.id, new Map());
+          context.refs
+            .get(ref.host.id)!
+            .set(`${ref.host.id},${ref.target.id}`, ref);
+        }
       });
     }
   });

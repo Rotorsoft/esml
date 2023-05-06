@@ -28,7 +28,10 @@ export class Context implements Artifact {
           rankdir: "LR",
           ranker: "network-simplex",
         });
-        node.nodes.forEach((n) => (n.artifact?.layout || square)(n, config));
+        node.nodes.forEach((n) => {
+          const layout = n.artifact?.layout || square;
+          layout(n, config);
+        });
         node.nodes.forEach(({ id, width, height }) =>
           g.setNode(id, { width, height })
         );

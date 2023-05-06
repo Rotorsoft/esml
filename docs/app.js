@@ -1,3 +1,64 @@
+const sample = `
+aggregate Ticket
+handles OpenTicket, AssignTicket, AddMessage,
+	CloseTicket, RequestTicketEscalation,
+    EscalateTicket, ReassignTicket,
+    MarkMessageDelivered, AcknowledgeMessage
+emits
+	TicketOpened, TicketAssigned, MessageAdded,
+    TicketClosed, TicketEscalated, TicketReassigned,
+    MessageDelivered, MessageRead, TicketEscalationRequested,
+    TicketResolved
+    
+
+policy Assignment handles TicketOpened 
+invokes AssignTicket, ReassignTicket
+reads Tickets
+
+policy RequestEscalation
+handles TicketEscalationRequested
+invokes EscalateTicket, CloseTicket
+reads Tickets
+
+policy Closing handles TicketResolved invokes CloseTicket
+reads Tickets
+
+projector Tickets
+handles 
+	TicketOpened, TicketAssigned, MessageAdded,
+    TicketClosed, TicketEscalated, TicketReassigned,
+    MessageDelivered, MessageRead, TicketEscalationRequested,
+    TicketResolved
+    
+actor Customer invokes OpenTicket, AddMessage, RequestTicketEscalation
+actor Agent invokes AddMessage, CloseTicket
+
+system Billing
+handles BillTenant emits TenantBilled
+
+policy BillingPolicy handles TicketResolved
+invokes BillTenant,AddTenant
+reads Tickets
+
+aggregate Tenant handles AddTenant emits TenantAdded
+
+context Admin includes Tenant
+
+actor Phil invokes AddTenant
+
+process ARandomProcessManager
+reads Tickets, AnotherProjection
+
+process Messaging
+invokes MarkMessageDelivered, AcknowledgeMessage
+
+
+context TicketLifecycle
+includes Ticket, Tickets, Assignment, 
+RequestEscalation, Closing,
+Customer, Agent, Messaging
+`;
+
 const Store = () => {
   const KEY = "ESML-Cache";
   let _x, _y, _z;
@@ -11,7 +72,7 @@ const Store = () => {
       _z = zoom;
       return { code, x, y, zoom };
     }
-    return {};
+    return { code: sample };
   };
 
   const save = esml.debounce(({ code, x, y, zoom }) => {

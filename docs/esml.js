@@ -45,7 +45,7 @@
         "policy",
         "process",
     ];
-    const Edges = ["invokes", "handles", "emits", "includes"];
+    const Edges = ["invokes", "handles", "emits", "includes", "reads"];
     const Keywords = [...Types, ...Edges];
     const isContextNode = (node) => "nodes" in node;
 
@@ -165,7 +165,10 @@
                         rankdir: "LR",
                         ranker: "network-simplex",
                     });
-                    node.nodes.forEach((n) => (n.artifact?.layout || square)(n, config));
+                    node.nodes.forEach((n) => {
+                        const layout = n.artifact?.layout || square;
+                        layout(n, config);
+                    });
                     node.nodes.forEach(({ id, width, height }) => g.setNode(id, { width, height }));
                     const edges = [...node.edges.values()].map((edge, index) => {
                         g.setEdge(edge.start, edge.end, {}, `${index}`);
@@ -212,7 +215,11 @@
 
     class Policy {
         grammar() {
-            return { handles: "event", invokes: "command" };
+            return {
+                handles: "event",
+                invokes: "command",
+                reads: "projector",
+            };
         }
         edge(node, ref) {
             if (ref.visual === "event")
@@ -225,7 +232,9 @@
         }
         ref(node, ref) {
             if (ref.visual === "command")
-                return { id: node.id, refid: ref.id };
+                return { host: ref, target: node };
+            if (ref.visual === "projector")
+                return { host: node, target: ref };
         }
         layout(node, config) {
             return rectangle(node, config);
@@ -234,7 +243,11 @@
 
     class Process {
         grammar() {
-            return { handles: "event", invokes: "command" };
+            return {
+                handles: "event",
+                invokes: "command",
+                reads: "projector",
+            };
         }
         edge(node, ref) {
             if (ref.visual === "event")
@@ -247,7 +260,9 @@
         }
         ref(node, ref) {
             if (ref.visual === "command")
-                return { id: node.id, refid: ref.id };
+                return { host: ref, target: node };
+            if (ref.visual === "projector")
+                return { host: node, target: ref };
         }
         layout(node, config) {
             return rectangle(node, config);
@@ -321,17 +336,16 @@
         const size2 = Math.max(Math.floor(w / maxPair), minSize);
         return Math.floor(Math.min(size1, size2, 30));
     };
-    const sizeText = (node, w, h) => {
-        const words = splitId(node.id);
-        let fontSize = pickFontSize(words, w);
+    const sizeText = (text, w, h) => {
+        let fontSize = pickFontSize(text, w);
         while (fontSize > 5) {
             const maxWidth = Math.floor(w / fontSize);
             const maxHeight = Math.floor(h / fontSize);
             const lines = [];
-            let line = words[0];
+            let line = text[0];
             let n = 1;
-            while (n < words.length) {
-                const word = words[n++];
+            while (n < text.length) {
+                const word = text[n++];
                 if (line.length + word.length >= maxWidth) {
                     lines.push(line);
                     line = word;
@@ -340,7 +354,7 @@
                     line = line.concat(line.length ? " " : "", word);
             }
             lines.push(line);
-            if (n === words.length && lines.length <= maxHeight)
+            if (n === text.length && lines.length <= maxHeight)
                 return {
                     lines,
                     fontSize,
@@ -348,18 +362,18 @@
             fontSize--;
         }
         return {
-            lines: words,
+            lines: text,
             fontSize,
         };
     };
-    const renderName = (node, g, config, options = { fit: true }) => {
+    const renderText = (node, text, g, config, options = { fit: true }) => {
         const style = renderable(node.visual).style;
         const width = options.width || node.width || 0;
         const height = options.height || node.height || 0;
         const { lines, fontSize } = options.fit
-            ? sizeText(node, width * config.font.widthScale, height)
+            ? sizeText(text, width * config.font.widthScale, height * 0.8)
             : {
-                lines: splitId(node.id),
+                lines: text,
                 fontSize: options.fontSize || config.fontSize,
             };
         g.setFont(fontSize);
@@ -408,21 +422,32 @@
             g.path(path).stroke();
         renderArrow(edge, g, config);
     };
-    const renderRef = (node, ref, g, config) => {
-        const x = Math.floor(ref.x - ref.width / 2 - config.scale * 0.2);
-        const y = Math.floor(ref.y + config.scale * 0.3);
-        const w = Math.floor(config.scale);
+    const renderRefs = (refs, g, config) => {
+        const align = refs.length > 1 ? "left" : "center";
+        const text = refs.length > 1
+            ? refs.map((r) => `- ${splitId(r.target.id).join(" ")}`)
+            : splitId(refs[0].target.id);
+        const { host, target } = refs[0];
+        const x = Math.floor(host.x - host.width / 2 - config.scale * 0.2);
+        const y = Math.floor(host.y + host.height * 0.4);
+        const w = Math.floor(host.width);
         const h = Math.floor(config.scale * 0.4);
-        g.fillStyle(COLORS[node.visual]);
-        const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
-        g.rect(x, y, w, h, style).fill();
-        renderName(node, g, config, {
-            fit: true,
-            x: x + w / 2,
-            y: y + h / 2,
-            width: w,
-            height: h,
-        });
+        g.group(0, 0);
+        {
+            g.setData("name", `refs-${host.id}`);
+            g.fillStyle(COLORS[target.visual]);
+            g.textAlign(align);
+            const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
+            g.rect(x, y, w, h, style).fill();
+            renderText(host, text, g, config, {
+                fit: true,
+                x: align === "center" ? x + w / 2 : x + config.scale * 0.05,
+                y: y + h / 2,
+                width: w,
+                height: h,
+            });
+        }
+        g.ungroup();
     };
     const context = {
         style: {
@@ -443,11 +468,7 @@
                     g.textAlign("center");
                     node.edges.forEach((e) => renderEdge(e, g, config));
                     node.nodes.forEach((n) => renderNode(n, g, config));
-                    node.refs.forEach((r) => {
-                        const rn = node.nodes.get(r.id);
-                        const rr = node.nodes.get(r.refid);
-                        rn && rr && renderRef(rn, rr, g, config);
-                    });
+                    node.refs.forEach((r) => renderRefs([...r.values()], g, config));
                 }
                 g.ungroup();
             }
@@ -479,7 +500,7 @@
                 { x: x + a, y: yp + a + padding },
             ]).stroke();
         },
-        renderContents: (node, g, config) => renderName(node, g, config, {
+        renderContents: (node, g, config) => renderText(node, splitId(node.id), g, config, {
             fit: false,
             x: node.x,
             y: node.y + node.height,
@@ -506,7 +527,7 @@
             const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
             g.rect(0, 0, node.width, node.height, style).fill();
         },
-        renderContents: renderName,
+        renderContents: (node, g, config) => renderText(node, splitId(node.id), g, config),
     });
     const renderable = (visual) => {
         if (visual === "context")
@@ -870,43 +891,49 @@
             }
             return token;
         };
-        const producer = (av, mv) => {
-            const sys = av === "aggregate" || av === "system";
-            return sys ? mv === "event" : mv === "command";
-        };
-        const _msgCtxs = new Map();
-        const trackCtx = (context, anode, mnode) => {
-            let mm = _msgCtxs.get(mnode.id);
-            if (!mm) {
-                mm = new Map();
-                _msgCtxs.set(mnode.id, mm);
+        const newContext = (id = "") => ({
+            id,
+            visual: "context",
+            artifact: artifacts.context,
+            nodes: new Map(),
+            edges: new Set(),
+            refs: new Map(),
+            x: 0,
+            y: 0,
+        });
+        const nodes = new Map();
+        const newNode = (context, id, visual, artifact) => {
+            const found = nodes.get(id);
+            if (found) {
+                if (found.visual !== visual)
+                    error(`${id} as ${found.visual}`, visual);
+                return found;
             }
-            const is_producer = producer(anode.visual, mnode.visual);
-            let ctx = mm.get(context.id);
-            if (!ctx) {
-                ctx = { context, visual: mnode.visual, producer: is_producer };
-                mm.set(context.id, ctx);
-            }
-            else if (!ctx.producer && is_producer)
-                ctx.producer = is_producer;
+            const node = {
+                id,
+                visual,
+                artifact,
+                context: context.id,
+            };
+            nodes.set(id, node);
+            return node;
         };
         const addNode = (context, id) => {
             const statement = statements.get(id);
             if (statement && statement.type !== "context" && !statement.context) {
                 statement.context = context.id;
                 const artifact = artifacts[statement.type];
-                const node = { id, visual: statement.type, artifact };
+                const node = newNode(context, id, statement.type, artifact);
                 statement.rels.forEach((visual, id) => {
                     const rel = statements.get(id);
                     (rel?.type || visual) === "context" && error("component", id);
                     !visual && !rel && error("declared component", id);
-                    const ref_node = { id, visual: visual || rel.type };
-                    const edge = artifact.edge(node, ref_node);
-                    edge && context.edges.add(edge);
-                    const ref = artifact.ref(node, ref_node);
-                    ref && context.refs.add(ref);
-                    context.nodes.set(id, ref_node);
-                    trackCtx(context, node, ref_node);
+                    const ref_node = newNode(context, id, visual || rel.type, artifacts[visual || rel.type]);
+                    if (ref_node.context === context.id || ref_node.visual === "event") {
+                        const edge = artifact.edge(node, ref_node);
+                        edge && context.edges.add(edge);
+                        context.nodes.set(id, ref_node);
+                    }
                 });
                 context.nodes.set(id, node);
             }
@@ -919,36 +946,57 @@
             else
                 error("keyword", type);
         }
-        const context = (id = "") => ({
-            id,
-            visual: "context",
-            artifact: artifacts.context,
-            nodes: new Map(),
-            edges: new Set(),
-            refs: new Set(),
-            x: 0,
-            y: 0,
-        });
-        const root = context();
+        const root = newContext();
         statements.forEach((statement, id) => {
             if (statement.type === "context") {
-                const node = context(id);
+                const node = newContext(id);
                 statement.rels.forEach((_, id) => addNode(node, id));
                 root.nodes.set(id, node);
             }
         });
-        const global = context("global");
-        statements.forEach((statement, id) => statement.type !== "context" && !statement.context && addNode(global, id));
+        const global = newContext("global");
+        statements.forEach((statement, id) => {
+            if (statement.type !== "context" && !statement.context) {
+                addNode(global, id);
+            }
+        });
         global.nodes.size && root.nodes.set("global", global);
-        _msgCtxs.forEach((x) => {
-            if (x.size > 1) {
-                const producers = [...x.values()].filter((c) => c.producer);
-                const consumers = [...x.values()].filter((c) => !c.producer);
-                producers.forEach((p) => {
-                    consumers.forEach((c) => {
-                        const edge = artifacts.context.edge(p.context, c.context, p.visual === "event");
-                        edge && root.edges.add(edge);
-                    });
+        const ctxedges = new Set();
+        statements.forEach((statement, id) => {
+            if (statement.type !== "context") {
+                const artifact = artifacts[statement.type];
+                const node = nodes.get(id);
+                const ctx = node.context;
+                statement.rels.forEach((visual, id) => {
+                    const ref_node = nodes.get(id);
+                    const ref_ctx = ref_node.context;
+                    if (ctx !== ref_ctx) {
+                        const ctx_node = root.nodes.get(ctx);
+                        const ref_ctx_node = root.nodes.get(ref_ctx);
+                        const sys = statement.type === "aggregate" || statement.type === "system";
+                        const is_consumer = (visual === "event" && !sys) ||
+                            (visual === "command" && sys) ||
+                            (visual === "projector" && statement.type !== "projector");
+                        const producer = is_consumer ? ref_ctx_node : ctx_node;
+                        const consumer = is_consumer ? ctx_node : ref_ctx_node;
+                        const edge = artifacts.context.edge(producer, consumer);
+                        if (edge) {
+                            const key = `${producer.id}->${consumer.id}`;
+                            if (!ctxedges.has(key)) {
+                                root.edges.add(edge);
+                                ctxedges.add(key);
+                            }
+                        }
+                    }
+                    const ref = artifact.ref(node, ref_node);
+                    if (ref) {
+                        const context = root.nodes.get(ref.host.context);
+                        !context.refs.has(ref.host.id) &&
+                            context.refs.set(ref.host.id, new Map());
+                        context.refs
+                            .get(ref.host.id)
+                            .set(`${ref.host.id},${ref.target.id}`, ref);
+                    }
                 });
             }
         });

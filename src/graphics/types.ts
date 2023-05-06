@@ -54,7 +54,7 @@ export interface Graphics {
   setData(name: string, value?: string): void;
   setLineDash(d: number[]): void;
   stroke(): void;
-  textAlign(a: string): void;
+  textAlign(a: "left" | "center"): void;
   translate(dx: number, dy: number): void;
   serialize(): string;
   group(x: number, y: number): void;

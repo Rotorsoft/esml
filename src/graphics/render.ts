@@ -1,4 +1,4 @@
-import { Config, Edge, Node, Visual, isContextNode } from "../artifacts";
+import { Config, Edge, Node, Ref, Visual, isContextNode } from "../artifacts";
 import {
   Vector,
   add,
@@ -23,27 +23,26 @@ const pickFontSize = (words: string[], w: number) => {
 };
 
 const sizeText = (
-  node: Node,
+  text: string[],
   w: number,
   h: number
 ): { lines: string[]; fontSize: number } => {
-  const words = splitId(node.id);
-  let fontSize = pickFontSize(words, w);
+  let fontSize = pickFontSize(text, w);
   while (fontSize > 5) {
     const maxWidth = Math.floor(w / fontSize);
     const maxHeight = Math.floor(h / fontSize);
     const lines: string[] = [];
-    let line = words[0];
+    let line = text[0];
     let n = 1;
-    while (n < words.length) {
-      const word = words[n++];
+    while (n < text.length) {
+      const word = text[n++];
       if (line.length + word.length >= maxWidth) {
         lines.push(line);
         line = word;
       } else line = line.concat(line.length ? " " : "", word);
     }
     lines.push(line);
-    if (n === words.length && lines.length <= maxHeight)
+    if (n === text.length && lines.length <= maxHeight)
       return {
         lines,
         fontSize,
@@ -51,13 +50,14 @@ const sizeText = (
     fontSize--;
   }
   return {
-    lines: words,
+    lines: text,
     fontSize,
   };
 };
 
-const renderName = (
+const renderText = (
   node: Node,
+  text: string[],
   g: Graphics,
   config: Config,
   options: {
@@ -74,9 +74,9 @@ const renderName = (
   const height = options.height || node.height || 0;
 
   const { lines, fontSize } = options.fit
-    ? sizeText(node, width * config.font.widthScale, height)
+    ? sizeText(text, width * config.font.widthScale, height * 0.8)
     : {
-        lines: splitId(node.id),
+        lines: text,
         fontSize: options.fontSize || config.fontSize,
       };
 
@@ -128,21 +128,35 @@ const renderEdge = (edge: Edge, g: Graphics, config: Config) => {
   renderArrow(edge, g, config);
 };
 
-const renderRef = (node: Node, ref: Node, g: Graphics, config: Config) => {
-  const x = Math.floor(ref.x! - ref.width! / 2 - config.scale * 0.2);
-  const y = Math.floor(ref.y! + config.scale * 0.3);
-  const w = Math.floor(config.scale);
+const renderRefs = (refs: Ref[], g: Graphics, config: Config) => {
+  const align = refs.length > 1 ? "left" : "center";
+  const text =
+    refs.length > 1
+      ? refs.map((r) => `- ${splitId(r.target.id).join(" ")}`)
+      : splitId(refs[0].target.id);
+
+  const { host, target } = refs[0];
+  const x = Math.floor(host.x! - host.width! / 2 - config.scale * 0.2);
+  const y = Math.floor(host.y! + host.height! * 0.4);
+  const w = Math.floor(host.width!);
   const h = Math.floor(config.scale * 0.4);
-  g.fillStyle(COLORS[node.visual]);
-  const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
-  g.rect(x, y, w, h, style).fill();
-  renderName(node, g, config, {
-    fit: true,
-    x: x + w / 2,
-    y: y + h / 2,
-    width: w,
-    height: h,
-  });
+
+  g.group(0, 0);
+  {
+    g.setData("name", `refs-${host.id}`);
+    g.fillStyle(COLORS[target.visual]);
+    g.textAlign(align);
+    const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
+    g.rect(x, y, w, h, style).fill();
+    renderText(host, text, g, config, {
+      fit: true,
+      x: align === "center" ? x + w / 2 : x + config.scale * 0.05,
+      y: y + h / 2,
+      width: w,
+      height: h,
+    });
+  }
+  g.ungroup();
 };
 
 const context: Renderable = {
@@ -169,11 +183,7 @@ const context: Renderable = {
         g.textAlign("center");
         node.edges.forEach((e) => renderEdge(e, g, config));
         node.nodes.forEach((n) => renderNode(n, g, config));
-        node.refs.forEach((r) => {
-          const rn = node.nodes.get(r.id);
-          const rr = node.nodes.get(r.refid);
-          rn && rr && renderRef(rn, rr, g, config);
-        });
+        node.refs.forEach((r) => renderRefs([...r.values()], g, config));
       }
       g.ungroup();
     }
@@ -207,7 +217,7 @@ const actor: Renderable = {
     ]).stroke();
   },
   renderContents: (node, g, config) =>
-    renderName(node, g, config, {
+    renderText(node, splitId(node.id), g, config, {
       fit: false,
       x: node.x!,
       y: node.y! + node.height!,
@@ -235,7 +245,8 @@ const note = (visual: Visual): Renderable => ({
     const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
     g.rect(0, 0, node.width!, node.height!, style).fill();
   },
-  renderContents: renderName,
+  renderContents: (node, g, config) =>
+    renderText(node, splitId(node.id), g, config),
 });
 
 const renderable = (visual: Visual) => {

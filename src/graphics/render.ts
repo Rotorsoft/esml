@@ -1,4 +1,12 @@
-import { Config, Edge, Node, Ref, Visual, isContextNode } from "../artifacts";
+import {
+  Config,
+  ContextNode,
+  Edge,
+  Node,
+  Ref,
+  Visual,
+  isContextNode,
+} from "../artifacts";
 import {
   Vector,
   add,
@@ -128,14 +136,22 @@ const renderEdge = (edge: Edge, g: Graphics, config: Config) => {
   renderArrow(edge, g, config);
 };
 
-const renderRefs = (refs: Ref[], g: Graphics, config: Config) => {
+const renderRefs = (
+  context: ContextNode,
+  refs: Ref[],
+  g: Graphics,
+  config: Config
+) => {
   const align = refs.length > 1 ? "left" : "center";
   const text =
     refs.length > 1
       ? refs.map((r) => `- ${splitId(r.target.id).join(" ")}`)
       : splitId(refs[0].target.id);
 
-  const { host, target } = refs[0];
+  const { hostId, target } = refs[0];
+  const host = context.nodes.get(hostId);
+  if (!host) return;
+
   const x = Math.floor(host.x! - host.width! / 2 - config.scale * 0.2);
   const y = Math.floor(host.y! + host.height! * 0.4);
   const w = Math.floor(host.width!);
@@ -143,7 +159,7 @@ const renderRefs = (refs: Ref[], g: Graphics, config: Config) => {
 
   g.group(0, 0);
   {
-    g.setData("name", `refs-${host.id}`);
+    g.setData("name", `refs-${hostId}`);
     g.fillStyle(COLORS[target.visual]);
     g.textAlign(align);
     const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
@@ -183,7 +199,7 @@ const context: Renderable = {
         g.textAlign("center");
         node.edges.forEach((e) => renderEdge(e, g, config));
         node.nodes.forEach((n) => renderNode(n, g, config));
-        node.refs.forEach((r) => renderRefs([...r.values()], g, config));
+        node.refs.forEach((r) => renderRefs(node, [...r.values()], g, config));
       }
       g.ungroup();
     }
@@ -269,7 +285,11 @@ const renderNode = (node: Node, g: Graphics, config: Config) => {
   g.ungroup();
 };
 
-export const renderRoot = (root: Node, g: Graphics, config: Config): void => {
+export const render = (
+  root: ContextNode,
+  g: Graphics,
+  config: Config
+): void => {
   g.setData("name", "root");
   g.setFontFamily(config.font.family);
   g.setFont(config.fontSize);

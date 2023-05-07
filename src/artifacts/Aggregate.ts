@@ -1,9 +1,11 @@
-import { rectangle } from "./layout";
-import { Artifact, Config, Grammar, Node } from "./types";
+import { Artifact, Grammar, Node } from "./types";
 
 export class Aggregate implements Artifact {
   grammar() {
-    return { handles: "command", emits: "event" } as Grammar;
+    return {
+      handles: { visual: "command", owns: true },
+      emits: { visual: "event", owns: true },
+    } as Grammar;
   }
   edge(node: Node, ref: Node) {
     return ref.visual === "command"
@@ -22,8 +24,5 @@ export class Aggregate implements Artifact {
   }
   ref() {
     return undefined;
-  }
-  layout(node: Node, config: Config) {
-    return rectangle(node, config);
   }
 }

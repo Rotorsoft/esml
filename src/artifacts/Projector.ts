@@ -1,9 +1,8 @@
-import { rectangle } from "./layout";
-import { Artifact, Config, Grammar, Node } from "./types";
+import { Artifact, Grammar, Node } from "./types";
 
 export class Projector implements Artifact {
   grammar() {
-    return { handles: "event" } as Grammar;
+    return { handles: { visual: "event", owns: false } } as Grammar;
   }
   edge(node: Node, ref: Node) {
     return {
@@ -15,8 +14,5 @@ export class Projector implements Artifact {
   }
   ref() {
     return undefined;
-  }
-  layout(node: Node, config: Config) {
-    return rectangle(node, config);
   }
 }

@@ -1,12 +1,13 @@
-import { Config, Node, artifacts } from "../artifacts";
-import { renderRoot } from "./render";
+import { Config, ContextNode } from "../artifacts";
+import { layout } from "./layout";
+import { render } from "./render";
 import { svg } from "./svg";
 
 export { Graphics } from "./types";
 
-export const renderSvg = (root: Node, config: Config): string => {
+export const renderSvg = (root: ContextNode, config: Config): string => {
   const g = svg();
-  artifacts.context.layout(root, config);
-  renderRoot(root, g, config);
+  layout(root, config);
+  render(root, g, config);
   return g.serialize();
 };

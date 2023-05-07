@@ -1,12 +1,11 @@
-import { rectangle } from "./layout";
-import { Artifact, Config, Grammar, Node } from "./types";
+import { Artifact, Grammar, Node } from "./types";
 
 export class Policy implements Artifact {
   grammar() {
     return {
-      handles: "event",
-      invokes: "command",
-      reads: "projector",
+      handles: { visual: "event", owns: false },
+      invokes: { visual: "command", owns: false },
+      reads: { visual: "projector", owns: false },
     } as Grammar;
   }
   edge(node: Node, ref: Node) {
@@ -19,10 +18,7 @@ export class Policy implements Artifact {
       };
   }
   ref(node: Node, ref: Node) {
-    if (ref.visual === "command") return { host: ref, target: node };
-    if (ref.visual === "projector") return { host: node, target: ref };
-  }
-  layout(node: Node, config: Config) {
-    return rectangle(node, config);
+    if (ref.visual === "command") return { hostId: ref.id, target: node };
+    if (ref.visual === "projector") return { hostId: node.id, target: ref };
   }
 }

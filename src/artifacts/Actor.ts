@@ -1,8 +1,8 @@
-import { Artifact, Config, Grammar, Node } from "./types";
+import { Artifact, Grammar, Node } from "./types";
 
 export class Actor implements Artifact {
   grammar() {
-    return { invokes: "command" } as Grammar;
+    return { invokes: { visual: "command", owns: true } } as Grammar;
   }
   edge(node: Node, ref: Node) {
     return {
@@ -14,11 +14,5 @@ export class Actor implements Artifact {
   }
   ref() {
     return undefined;
-  }
-  layout(node: Node, config: Config) {
-    node.x = 0;
-    node.y = 0;
-    node.width = config.scale / 2;
-    node.height = config.scale / 2;
   }
 }

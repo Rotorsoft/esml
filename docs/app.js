@@ -117,11 +117,11 @@ const Editor = (canvas, bus) => {
     editor.getAllMarks().forEach((mark) => mark.clear());
     const error = canvas.render({ code, x, y, zoom });
     if (error) {
-      const { message, line, from, to } = error;
-      if (line) {
-        const _from = { line: line - 1, ch: from };
-        const _to = { line: line - 1, ch: to };
-        editor.markText(_from, _to, { className: "cm-error" });
+      const { message, source } = error;
+      if (source) {
+        const from = { line: source.from.line, ch: source.from.col };
+        const to = { line: source.to.line, ch: source.to.col };
+        editor.markText(from, to, { className: "cm-error" });
       }
       parse_err.style.display = "flex";
       parse_err.innerText = message;

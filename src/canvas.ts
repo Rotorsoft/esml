@@ -1,5 +1,4 @@
 import { esml } from "./esml";
-import { ParseError } from "./parser";
 import { EventEmitter } from "./utils";
 
 const MIN_X = 0,
@@ -151,7 +150,7 @@ export class Canvas extends EventEmitter {
     }
   }
 
-  public render({ code, x, y, zoom }: State): ParseError | undefined {
+  public render({ code, x, y, zoom }: State): Error | undefined {
     const { error, svg } = esml(code, this.SCALE);
     if (error) return error;
     this.svg.innerHTML = svg!;

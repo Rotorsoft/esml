@@ -16,6 +16,7 @@ export const multiply = (v: Vector, factor: number) => ({
 export const normalize = (v: Vector) => multiply(v, 1 / magnitude(v));
 export const rotate = (a: Vector) => ({ x: a.y, y: -a.x });
 
+export const pad = (n: number, l: number) => n.toString().padStart(l);
 export const splitId = (text: string) => text.trim().split(/(?=[A-Z])/);
 export const range = (
   [min, max]: [min: number, max: number],

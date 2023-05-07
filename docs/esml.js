@@ -23,35 +23,9 @@
 
     var graphre__namespace = /*#__PURE__*/_interopNamespaceDefault(graphre);
 
-    const square = (node, config) => {
-        node.x = 0;
-        node.y = 0;
-        node.width = config.scale;
-        node.height = config.scale;
-    };
-    const rectangle = (node, config) => {
-        node.x = 0;
-        node.y = 0;
-        node.width = config.scale * 2;
-        node.height = config.scale;
-    };
-
-    const Types = [
-        "context",
-        "actor",
-        "aggregate",
-        "system",
-        "projector",
-        "policy",
-        "process",
-    ];
-    const Edges = ["invokes", "handles", "emits", "includes", "reads"];
-    const Keywords = [...Types, ...Edges];
-    const isContextNode = (node) => "nodes" in node;
-
     class Actor {
         grammar() {
-            return { invokes: "command" };
+            return { invokes: { visual: "command", owns: true } };
         }
         edge(node, ref) {
             return {
@@ -64,17 +38,14 @@
         ref() {
             return undefined;
         }
-        layout(node, config) {
-            node.x = 0;
-            node.y = 0;
-            node.width = config.scale / 2;
-            node.height = config.scale / 2;
-        }
     }
 
     class Aggregate {
         grammar() {
-            return { handles: "command", emits: "event" };
+            return {
+                handles: { visual: "command", owns: true },
+                emits: { visual: "event", owns: true },
+            };
         }
         edge(node, ref) {
             return ref.visual === "command"
@@ -94,10 +65,244 @@
         ref() {
             return undefined;
         }
-        layout(node, config) {
-            return rectangle(node, config);
+    }
+
+    class Context {
+        grammar() {
+            return { includes: { visual: "artifact", owns: true } };
+        }
+        edge(node, ref, dashed = false, arrow = true) {
+            return { start: node.id, end: ref.id, dashed, arrow };
+        }
+        ref() {
+            return undefined;
         }
     }
+
+    class Policy {
+        grammar() {
+            return {
+                handles: { visual: "event", owns: false },
+                invokes: { visual: "command", owns: false },
+                reads: { visual: "projector", owns: false },
+            };
+        }
+        edge(node, ref) {
+            if (ref.visual === "event")
+                return {
+                    start: ref.id,
+                    end: node.id,
+                    dashed: true,
+                    arrow: true,
+                };
+        }
+        ref(node, ref) {
+            if (ref.visual === "command")
+                return { hostId: ref.id, target: node };
+            if (ref.visual === "projector")
+                return { hostId: node.id, target: ref };
+        }
+    }
+
+    class Process {
+        grammar() {
+            return {
+                handles: { visual: "event", owns: false },
+                invokes: { visual: "command", owns: false },
+                reads: { visual: "projector", owns: false },
+            };
+        }
+        edge(node, ref) {
+            if (ref.visual === "event")
+                return {
+                    start: ref.id,
+                    end: node.id,
+                    dashed: true,
+                    arrow: true,
+                };
+        }
+        ref(node, ref) {
+            if (ref.visual === "command")
+                return { hostId: ref.id, target: node };
+            if (ref.visual === "projector")
+                return { hostId: node.id, target: ref };
+        }
+    }
+
+    class Projector {
+        grammar() {
+            return { handles: { visual: "event", owns: false } };
+        }
+        edge(node, ref) {
+            return {
+                start: ref.id,
+                end: node.id,
+                dashed: true,
+                arrow: true,
+            };
+        }
+        ref() {
+            return undefined;
+        }
+    }
+
+    class System {
+        grammar() {
+            return {
+                handles: { visual: "command", owns: true },
+                emits: { visual: "event", owns: true },
+            };
+        }
+        edge(node, ref) {
+            return ref.visual === "command"
+                ? {
+                    start: ref.id,
+                    end: node.id,
+                    dashed: false,
+                    arrow: true,
+                }
+                : {
+                    start: node.id,
+                    end: ref.id,
+                    dashed: false,
+                    arrow: false,
+                };
+        }
+        ref() {
+            return undefined;
+        }
+    }
+
+    const Types = [
+        "context",
+        "actor",
+        "aggregate",
+        "system",
+        "projector",
+        "policy",
+        "process",
+    ];
+    const Actions = ["invokes", "handles", "emits", "includes", "reads"];
+    const Keywords = [...Types, ...Actions];
+    const isContextNode = (node) => "nodes" in node;
+
+    const artifacts = {
+        actor: new Actor(),
+        aggregate: new Aggregate(),
+        context: new Context(),
+        policy: new Policy(),
+        process: new Process(),
+        projector: new Projector(),
+        system: new System(),
+    };
+
+    class CompilerError extends Error {
+        constructor(source, expected, actual) {
+            super(`Compiler error at line ${source.from.line}: Expected ${expected} but got ${actual}`);
+            this.source = source;
+            this.expected = expected;
+            this.actual = actual;
+        }
+    }
+    const error = (statement, expected, actual) => {
+        throw new CompilerError(statement.source, expected, actual);
+    };
+    const newContext = (id = "") => ({
+        id,
+        visual: "context",
+        nodes: new Map(),
+        edges: new Set(),
+        refs: new Map(),
+        x: 0,
+        y: 0,
+    });
+    const compile = (statements) => {
+        const nodes = new Map();
+        const newNode = (statement, id, visual, owns) => {
+            const found = nodes.get(id);
+            if (found) {
+                if (found.visual !== visual)
+                    error(statement, `${id} as ${found.visual}`, visual);
+                !found.ctx && owns && (found.ctx = statement.context);
+                return found;
+            }
+            const node = { id, visual };
+            owns && (node.ctx = statement.context);
+            nodes.set(id, node);
+            return node;
+        };
+        const addNode = (context, id) => {
+            const statement = statements.get(id);
+            if (statement && statement.type !== "context" && !statement.context) {
+                statement.context = context.id;
+                const node = newNode(statement, id, statement.type, true);
+                statement.rels.forEach(({ visual, owns }, id) => {
+                    const ref = statements.get(id);
+                    ref?.type === "context" && error(statement, "component", id);
+                    if (visual === "artifact")
+                        error(statement, "valid relationship", visual);
+                    else
+                        newNode(statement, id, visual, owns);
+                });
+                context.nodes.set(id, node);
+            }
+        };
+        const root = newContext();
+        statements.forEach((statement, id) => {
+            if (statement.type === "context") {
+                const node = newContext(id);
+                statement.rels.forEach((_, id) => addNode(node, id));
+                root.nodes.set(id, node);
+            }
+        });
+        const global = newContext("global");
+        statements.forEach((statement, id) => {
+            if (statement.type !== "context" && !statement.context) {
+                addNode(global, id);
+            }
+        });
+        global.nodes.size && root.nodes.set("global", global);
+        const ctxmap = new Set();
+        statements.forEach((statement, id) => {
+            if (statement.type !== "context") {
+                const artifact = artifacts[statement.type];
+                const node = nodes.get(id);
+                const ctx = root.nodes.get(node.ctx);
+                statement.rels.forEach(({ visual }, id) => {
+                    const rel = nodes.get(id);
+                    if (rel.ctx && node.ctx !== rel.ctx) {
+                        const ref_ctx = root.nodes.get(rel.ctx);
+                        const sys = statement.type === "aggregate" || statement.type === "system";
+                        const is_consumer = (visual === "event" && !sys) ||
+                            (visual === "command" && sys) ||
+                            (visual === "projector" && statement.type !== "projector");
+                        const producer = is_consumer ? ref_ctx : ctx;
+                        const consumer = is_consumer ? ctx : ref_ctx;
+                        const edge = artifacts.context.edge(producer, consumer);
+                        if (edge) {
+                            const key = `${producer.id}->${consumer.id}`;
+                            if (!ctxmap.has(key)) {
+                                root.edges.add(edge);
+                                ctxmap.add(key);
+                            }
+                        }
+                    }
+                    if (node.ctx === rel.ctx || rel.visual === "event") {
+                        const clone = { ...rel };
+                        const edge = artifact.edge(node, clone);
+                        edge && ctx.edges.add(edge);
+                        ctx.nodes.set(id, clone);
+                    }
+                    const ref = artifact.ref(node, rel);
+                    if (ref) {
+                        !ctx.refs.has(ref.hostId) && ctx.refs.set(ref.hostId, new Map());
+                        ctx.refs.get(ref.hostId).set(`${ref.hostId},${ref.target.id}`, ref);
+                    }
+                });
+            }
+        });
+        return root;
+    };
 
     const magnitude = (v) => Math.sqrt(v.x * v.x + v.y * v.y);
     const difference = (a, b) => ({
@@ -141,189 +346,94 @@
         }
     }
 
-    class Context {
-        grammar() {
-            return { includes: "artifacts" };
-        }
-        edge(node, ref, dashed = false, arrow = true) {
-            return { start: node.id, end: ref.id, dashed, arrow };
-        }
-        ref() {
-            return undefined;
-        }
-        layout(node, config) {
-            if (isContextNode(node)) {
-                if (node.nodes.size) {
-                    const g = new graphre__namespace.Graph({
-                        multigraph: true,
-                    });
-                    g.setGraph({
-                        nodesep: config.spacing,
-                        edgesep: config.spacing,
-                        ranksep: config.spacing,
-                        acyclicer: "greedy",
-                        rankdir: "LR",
-                        ranker: "network-simplex",
-                    });
-                    node.nodes.forEach((n) => {
-                        const layout = n.artifact?.layout || square;
-                        layout(n, config);
-                    });
-                    node.nodes.forEach(({ id, width, height }) => g.setNode(id, { width, height }));
-                    const edges = [...node.edges.values()].map((edge, index) => {
-                        g.setEdge(edge.start, edge.end, {}, `${index}`);
-                        return edge;
-                    });
-                    graphre__namespace.layout(g);
-                    node.nodes.forEach((n) => {
-                        const gn = g.node(n.id);
-                        n.x = gn.x;
-                        n.y = gn.y;
-                    });
-                    const r = [0, 0, 0, 0];
-                    for (const e of g.edges()) {
-                        const ge = g.edge(e);
-                        const ne = edges[parseInt(e.name)];
-                        const start = node.nodes.get(e.v);
-                        const end = node.nodes.get(e.w);
-                        ne.path = [start, ...ge.points, end].map((n) => ({
-                            x: n.x,
-                            y: n.y,
-                        }));
-                        ge.points.forEach(({ x, y }) => {
-                            r[0] = r[0] < x ? r[0] : x;
-                            r[1] = r[1] > x ? r[1] : x;
-                            r[2] = r[2] < y ? r[2] : y;
-                            r[3] = r[3] < y ? r[3] : y;
-                        });
-                    }
-                    const graph = g.graph();
-                    const width = Math.max(graph.width, r[1] - r[0]);
-                    const height = Math.max(graph.height, r[3] - r[2]);
-                    node.width = width + 2 * config.padding;
-                    node.height = height + 2 * config.padding;
-                }
-                else {
-                    node.width =
-                        config.padding * 2 +
-                            splitId(node.id).join(" ").length * config.fontSize;
-                    node.height = config.padding * 3 + config.fontSize;
-                }
+    const square = (node, config) => {
+        node.x = 0;
+        node.y = 0;
+        node.width = config.scale;
+        node.height = config.scale;
+    };
+    const rectangle = (node, config) => {
+        node.x = 0;
+        node.y = 0;
+        node.width = config.scale * 2;
+        node.height = config.scale;
+    };
+    const half_square = (node, config) => {
+        node.x = 0;
+        node.y = 0;
+        node.width = config.scale / 2;
+        node.height = config.scale / 2;
+    };
+    const layout = (root, config) => {
+        function layouter(visual) {
+            switch (visual) {
+                case "context":
+                    return layoutContext;
+                case "actor":
+                    return half_square;
+                case "command":
+                case "event":
+                    return square;
+                default:
+                    return rectangle;
             }
         }
-    }
-
-    class Policy {
-        grammar() {
-            return {
-                handles: "event",
-                invokes: "command",
-                reads: "projector",
-            };
-        }
-        edge(node, ref) {
-            if (ref.visual === "event")
-                return {
-                    start: ref.id,
-                    end: node.id,
-                    dashed: true,
-                    arrow: true,
-                };
-        }
-        ref(node, ref) {
-            if (ref.visual === "command")
-                return { host: ref, target: node };
-            if (ref.visual === "projector")
-                return { host: node, target: ref };
-        }
-        layout(node, config) {
-            return rectangle(node, config);
-        }
-    }
-
-    class Process {
-        grammar() {
-            return {
-                handles: "event",
-                invokes: "command",
-                reads: "projector",
-            };
-        }
-        edge(node, ref) {
-            if (ref.visual === "event")
-                return {
-                    start: ref.id,
-                    end: node.id,
-                    dashed: true,
-                    arrow: true,
-                };
-        }
-        ref(node, ref) {
-            if (ref.visual === "command")
-                return { host: ref, target: node };
-            if (ref.visual === "projector")
-                return { host: node, target: ref };
-        }
-        layout(node, config) {
-            return rectangle(node, config);
-        }
-    }
-
-    class Projector {
-        grammar() {
-            return { handles: "event" };
-        }
-        edge(node, ref) {
-            return {
-                start: ref.id,
-                end: node.id,
-                dashed: true,
-                arrow: true,
-            };
-        }
-        ref() {
-            return undefined;
-        }
-        layout(node, config) {
-            return rectangle(node, config);
-        }
-    }
-
-    class System {
-        grammar() {
-            return { handles: "command", emits: "event" };
-        }
-        edge(node, ref) {
-            return ref.visual === "command"
-                ? {
-                    start: ref.id,
-                    end: node.id,
-                    dashed: false,
-                    arrow: true,
+        const layoutContext = (node, config) => {
+            if (node.nodes.size) {
+                const g = new graphre__namespace.Graph({
+                    multigraph: true,
+                });
+                g.setGraph({
+                    nodesep: config.spacing,
+                    edgesep: config.spacing,
+                    ranksep: config.spacing,
+                    acyclicer: "greedy",
+                    rankdir: "LR",
+                    ranker: "network-simplex",
+                });
+                node.nodes.forEach((n) => layouter(n.visual)(n, config));
+                node.nodes.forEach(({ id, width, height }) => g.setNode(id, { width, height }));
+                const edges = [...node.edges.values()].map((edge, index) => {
+                    g.setEdge(edge.start, edge.end, {}, `${index}`);
+                    return edge;
+                });
+                graphre__namespace.layout(g);
+                node.nodes.forEach((n) => {
+                    const gn = g.node(n.id);
+                    n.x = gn.x;
+                    n.y = gn.y;
+                });
+                const r = [0, 0, 0, 0];
+                for (const e of g.edges()) {
+                    const ge = g.edge(e);
+                    const ne = edges[parseInt(e.name)];
+                    const start = node.nodes.get(e.v);
+                    const end = node.nodes.get(e.w);
+                    ne.path = [start, ...ge.points, end].map((n) => ({
+                        x: n.x,
+                        y: n.y,
+                    }));
+                    ge.points.forEach(({ x, y }) => {
+                        r[0] = r[0] < x ? r[0] : x;
+                        r[1] = r[1] > x ? r[1] : x;
+                        r[2] = r[2] < y ? r[2] : y;
+                        r[3] = r[3] < y ? r[3] : y;
+                    });
                 }
-                : {
-                    start: node.id,
-                    end: ref.id,
-                    dashed: false,
-                    arrow: false,
-                };
-        }
-        ref() {
-            return undefined;
-        }
-        layout(node, config) {
-            return rectangle(node, config);
-        }
-    }
-
-    const artifacts = {
-        actor: new Actor(),
-        aggregate: new Aggregate(),
-        context: new Context(),
-        policy: new Policy(),
-        process: new Process(),
-        projector: new Projector(),
-        system: new System(),
+                const graph = g.graph();
+                const width = Math.max(graph.width, r[1] - r[0]);
+                const height = Math.max(graph.height, r[3] - r[2]);
+                node.width = width + 2 * config.padding;
+                node.height = height + 2 * config.padding;
+            }
+            else {
+                node.width =
+                    config.padding * 2 +
+                        splitId(node.id).join(" ").length * config.fontSize;
+                node.height = config.padding * 3 + config.fontSize;
+            }
+        };
+        return layoutContext(root, config);
     };
 
     const pickFontSize = (words, w) => {
@@ -422,19 +532,22 @@
             g.path(path).stroke();
         renderArrow(edge, g, config);
     };
-    const renderRefs = (refs, g, config) => {
+    const renderRefs = (context, refs, g, config) => {
         const align = refs.length > 1 ? "left" : "center";
         const text = refs.length > 1
             ? refs.map((r) => `- ${splitId(r.target.id).join(" ")}`)
             : splitId(refs[0].target.id);
-        const { host, target } = refs[0];
+        const { hostId, target } = refs[0];
+        const host = context.nodes.get(hostId);
+        if (!host)
+            return;
         const x = Math.floor(host.x - host.width / 2 - config.scale * 0.2);
         const y = Math.floor(host.y + host.height * 0.4);
         const w = Math.floor(host.width);
         const h = Math.floor(config.scale * 0.4);
         g.group(0, 0);
         {
-            g.setData("name", `refs-${host.id}`);
+            g.setData("name", `refs-${hostId}`);
             g.fillStyle(COLORS[target.visual]);
             g.textAlign(align);
             const style = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
@@ -468,7 +581,7 @@
                     g.textAlign("center");
                     node.edges.forEach((e) => renderEdge(e, g, config));
                     node.nodes.forEach((n) => renderNode(n, g, config));
-                    node.refs.forEach((r) => renderRefs([...r.values()], g, config));
+                    node.refs.forEach((r) => renderRefs(node, [...r.values()], g, config));
                 }
                 g.ungroup();
             }
@@ -549,7 +662,7 @@
         }
         g.ungroup();
     };
-    const renderRoot = (root, g, config) => {
+    const render = (root, g, config) => {
         g.setData("name", "root");
         g.setFontFamily(config.font.family);
         g.setFont(config.fontSize);
@@ -781,42 +894,50 @@
 
     const renderSvg = (root, config) => {
         const g = svg();
-        artifacts.context.layout(root, config);
-        renderRoot(root, g, config);
+        layout(root, config);
+        render(root, g, config);
         return g.serialize();
     };
 
     class ParseError extends Error {
-        constructor(expected, actual, line, from, to) {
-            super(`Parser error at line ${line}: Expected ${expected} but got ${actual}`);
+        constructor(source, expected, actual) {
+            super(`Parser error at line ${source.from.line}: Expected ${expected} but got ${actual}`);
+            this.source = source;
             this.expected = expected;
             this.actual = actual;
-            this.line = line;
-            this.from = from;
-            this.to = to;
         }
     }
-    const parse = (source) => {
-        const cursor = { index: 0, line: 1, line_index: 0 };
-        const parser = { index: 0, line: 1, line_index: 0 };
-        const error = (expected, actual) => {
-            const from = (parser.token_index || parser.line_index) - parser.line_index;
-            const to = parser.index - parser.line_index;
-            const trimmed = actual.length > 30 ? actual.substring(0, 30) + "..." : actual;
-            throw new ParseError(expected, trimmed, parser.line, from, to);
-        };
+    const parse = (code) => {
         const statements = new Map();
+        const pos = { ix: 0, line: 0, line_ix: 0 };
+        const token_from = { ix: 0, line: 0, line_ix: 0 };
+        const token_to = { ix: 0, line: 0, line_ix: 0 };
+        const source = () => ({
+            from: {
+                line: token_from.line,
+                col: token_from.ix - token_from.line_ix,
+            },
+            to: { line: token_to.line, col: token_to.ix - token_to.line_ix },
+        });
+        const error = (expected, actual) => {
+            throw new ParseError(source(), expected, actual.length > 30 ? actual.substring(0, 40) + "..." : actual);
+        };
+        const notKeyword = (token, expected) => {
+            if ([...Keywords].includes(token))
+                error(expected, token);
+        };
         const BLANKS = ["\t", " ", "\n"];
         const skipBlanks = () => {
-            while (cursor.index < source.length) {
-                const char = source.charAt(cursor.index);
+            Object.assign(token_to, pos);
+            while (pos.ix < code.length) {
+                const char = code.charAt(pos.ix);
                 if (char === "\n") {
-                    cursor.index++;
-                    cursor.line++;
-                    cursor.line_index = cursor.index;
+                    pos.line++;
+                    pos.line_ix = ++pos.ix;
                 }
-                else if (BLANKS.includes(char))
-                    cursor.index++;
+                else if (BLANKS.includes(char)) {
+                    pos.ix++;
+                }
                 else
                     break;
             }
@@ -826,183 +947,76 @@
             let partial = "";
             let token = "";
             let char = "";
-            while (cursor.index < source.length) {
-                if (parser.index != cursor.index) {
-                    parser.index = cursor.index;
-                    parser.line = cursor.line;
-                    parser.line_index = cursor.line_index;
-                    parser.token_index = cursor.index;
-                }
-                char = source.charAt(cursor.index);
+            Object.assign(token_from, pos);
+            Object.assign(token_to, pos);
+            while (pos.ix < code.length) {
+                char = code.charAt(pos.ix);
                 if ((char >= "a" && char <= "z") ||
                     (char >= "A" && char <= "Z") ||
                     (partial.length && char >= "0" && char <= "9")) {
                     partial += char;
                     token += char;
-                    cursor.index++;
-                    if (parser.line === cursor.line)
-                        parser.index = cursor.index;
+                    pos.ix++;
                 }
                 else if (![",", ...BLANKS].includes(char)) {
                     error("identifier", char);
                 }
                 else {
                     skipBlanks();
-                    if (cursor.index < source.length) {
-                        char = source.charAt(cursor.index);
+                    if (pos.ix < code.length) {
+                        char = code.charAt(pos.ix);
                         if (char !== ",")
                             break;
                         partial = "";
                         token += char;
-                        cursor.index++;
-                        if (parser.line === cursor.line)
-                            parser.index = cursor.index;
+                        pos.ix++;
                         skipBlanks();
                     }
                 }
             }
-            return token;
-        };
-        const notKeyword = (token, expected) => {
-            if ([...Keywords].includes(token))
-                error(expected, token);
+            return { token, source: source() };
         };
         const parseStatement = (type) => {
-            const name = nextToken();
+            const { token: name, source } = nextToken();
             !name && error("name", "nothing");
             name.indexOf(",") > 0 && error("name", "names");
             notKeyword(name, "name");
-            !statements.has(name) && statements.set(name, { type, rels: new Map() });
-            let token = nextToken();
-            if (type.includes(token))
-                return token;
+            !statements.has(name) &&
+                statements.set(name, {
+                    type: type.token,
+                    source: type.source,
+                    rels: new Map(),
+                });
             const statement = statements.get(name);
-            const grammar = artifacts[type].grammar();
-            while (token in grammar) {
-                const rel = grammar[token];
-                const names = nextToken();
+            if (statement.type !== type.token)
+                error(statement.type, type.token);
+            statement.source.to = source.to;
+            let next = nextToken();
+            if (Types.includes(next.token))
+                return next;
+            const grammar = artifacts[type.token].grammar();
+            while (next.token in grammar) {
+                const rel = grammar[next.token];
+                const { token: names, source } = nextToken();
                 !names && error("names", "nothing");
                 names.split(",").forEach((n) => notKeyword(n.trim(), "names"));
                 names
                     .split(",")
                     .filter(Boolean)
-                    .forEach((n) => statement?.rels.set(n, rel === "artifacts" ? undefined : rel));
-                token = nextToken();
+                    .forEach((n) => statement?.rels.set(n, rel));
+                statement.source.to = source.to;
+                next = nextToken();
             }
-            return token;
+            return next;
         };
-        const newContext = (id = "") => ({
-            id,
-            visual: "context",
-            artifact: artifacts.context,
-            nodes: new Map(),
-            edges: new Set(),
-            refs: new Map(),
-            x: 0,
-            y: 0,
-        });
-        const nodes = new Map();
-        const newNode = (context, id, visual, artifact) => {
-            const found = nodes.get(id);
-            if (found) {
-                if (found.visual !== visual)
-                    error(`${id} as ${found.visual}`, visual);
-                if (visual !== "event")
-                    return found;
-            }
-            const node = {
-                id,
-                visual,
-                artifact,
-                context: found?.context || context.id,
-            };
-            nodes.set(id, node);
-            return node;
-        };
-        const addNode = (context, id) => {
-            const statement = statements.get(id);
-            if (statement && statement.type !== "context" && !statement.context) {
-                statement.context = context.id;
-                const artifact = artifacts[statement.type];
-                const node = newNode(context, id, statement.type, artifact);
-                statement.rels.forEach((visual, id) => {
-                    const rel = statements.get(id);
-                    (rel?.type || visual) === "context" && error("component", id);
-                    !visual && !rel && error("declared component", id);
-                    const ref_node = newNode(context, id, visual || rel.type, artifacts[visual || rel.type]);
-                    if (ref_node.context === context.id) {
-                        const edge = artifact.edge(node, ref_node);
-                        edge && context.edges.add(edge);
-                        context.nodes.set(id, ref_node);
-                    }
-                });
-                context.nodes.set(id, node);
-            }
-        };
-        let type = nextToken();
-        while (type) {
-            if (Types.includes(type)) {
-                type = parseStatement(type);
-            }
-            else
-                error("keyword", type);
+        let next = nextToken();
+        while (next.token.length) {
+            if (Types.includes(next.token))
+                next = parseStatement(next);
+            else if (next.token.length)
+                error("keyword", next.token);
         }
-        const root = newContext();
-        statements.forEach((statement, id) => {
-            if (statement.type === "context") {
-                const node = newContext(id);
-                statement.rels.forEach((_, id) => addNode(node, id));
-                root.nodes.set(id, node);
-            }
-        });
-        const global = newContext("global");
-        statements.forEach((statement, id) => {
-            if (statement.type !== "context" && !statement.context) {
-                addNode(global, id);
-            }
-        });
-        global.nodes.size && root.nodes.set("global", global);
-        const ctxedges = new Set();
-        statements.forEach((statement, id) => {
-            if (statement.type !== "context") {
-                const artifact = artifacts[statement.type];
-                const node = nodes.get(id);
-                const ctx = node.context;
-                statement.rels.forEach((visual, id) => {
-                    const ref_node = nodes.get(id);
-                    const ref_ctx = ref_node.context;
-                    if (ctx !== ref_ctx) {
-                        const ctx_node = root.nodes.get(ctx);
-                        const ref_ctx_node = root.nodes.get(ref_ctx);
-                        const sys = statement.type === "aggregate" || statement.type === "system";
-                        const is_consumer = (visual === "event" && !sys) ||
-                            (visual === "command" && sys) ||
-                            (visual === "projector" && statement.type !== "projector");
-                        const producer = is_consumer ? ref_ctx_node : ctx_node;
-                        const consumer = is_consumer ? ctx_node : ref_ctx_node;
-                        const edge = artifacts.context.edge(producer, consumer);
-                        if (edge) {
-                            const key = `${producer.id}->${consumer.id}`;
-                            if (!ctxedges.has(key)) {
-                                console.log(key, node.id, ref_node.id);
-                                root.edges.add(edge);
-                                ctxedges.add(key);
-                            }
-                        }
-                    }
-                    const ref = artifact.ref(node, ref_node);
-                    if (ref) {
-                        const context = root.nodes.get(ref.host.context);
-                        !context.refs.has(ref.host.id) &&
-                            context.refs.set(ref.host.id, new Map());
-                        context.refs
-                            .get(ref.host.id)
-                            .set(`${ref.host.id},${ref.target.id}`, ref);
-                    }
-                });
-            }
-        });
-        return root;
+        return statements;
     };
 
     const esml = (code, scale) => {
@@ -1020,11 +1034,20 @@
             scale,
         };
         try {
-            const root = parse(code);
+            const statements = parse(code);
+            const root = compile(statements);
             return { svg: renderSvg(root, config) };
         }
         catch (error) {
-            return { error };
+            if (error instanceof ParseError)
+                return { error };
+            if (error instanceof CompilerError)
+                return { error };
+            if (error instanceof Error) {
+                const message = error.stack.split("\n").slice(0, 2).join(" ");
+                return { error: Error(message) };
+            }
+            return { error: Error(error) };
         }
     };
 

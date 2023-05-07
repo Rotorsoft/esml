@@ -1,35 +1,39 @@
-import {
-  Artifact,
-  ContextNode,
-  EdgeType,
-  Keywords,
-  Node,
-  Type,
-  Types,
-  Visual,
-  artifacts,
-} from "./artifacts";
+import { Action, Keywords, Rel, Type, Types, artifacts } from "./artifacts";
 
-type Pos = {
-  index: number;
-  line: number;
-  line_index: number;
-  token_index?: number;
+export type Source = {
+  readonly from: { readonly line: number; readonly col: number };
+  to: { line: number; col: number };
+};
+
+type Token = {
+  readonly token: string;
+  readonly source: Source;
 };
 
 export class ParseError extends Error {
   constructor(
+    readonly source: Source,
     readonly expected: string,
-    readonly actual: string,
-    readonly line: number,
-    readonly from: number,
-    readonly to: number
+    readonly actual: string
   ) {
     super(
-      `Parser error at line ${line}: Expected ${expected} but got ${actual}`
+      `Parser error at line ${source.from.line}: Expected ${expected} but got ${actual}`
     );
   }
 }
+
+export type Statement = {
+  type: Type;
+  rels: Map<string, Rel>;
+  source: Source;
+  context?: string;
+};
+
+type Pos = {
+  ix: number;
+  line: number;
+  line_ix: number;
+};
 
 /**
  * Syntax
@@ -40,51 +44,55 @@ export class ParseError extends Error {
  * - `projector` ProjectorName [`handles` EventName,...]
  * - `context` ContextName [`includes` ArtifactName,...]
  */
-export const parse = (source: string): Node => {
-  const cursor: Pos = { index: 0, line: 1, line_index: 0 };
-  const parser: Pos = { index: 0, line: 1, line_index: 0 };
+export const parse = (code: string): Map<string, Statement> => {
+  const statements: Map<string, Statement> = new Map();
+  const pos: Pos = { ix: 0, line: 0, line_ix: 0 };
+  const token_from: Pos = { ix: 0, line: 0, line_ix: 0 };
+  const token_to: Pos = { ix: 0, line: 0, line_ix: 0 };
+
+  const source = (): Source => ({
+    from: {
+      line: token_from.line,
+      col: token_from.ix - token_from.line_ix,
+    },
+    to: { line: token_to.line, col: token_to.ix - token_to.line_ix },
+  });
 
   const error = (expected: string, actual: string): never => {
-    const from = (parser.token_index || parser.line_index) - parser.line_index;
-    const to = parser.index - parser.line_index;
-    const trimmed =
-      actual.length > 30 ? actual.substring(0, 30) + "..." : actual;
-    throw new ParseError(expected, trimmed, parser.line, from, to);
+    throw new ParseError(
+      source(),
+      expected,
+      actual.length > 30 ? actual.substring(0, 40) + "..." : actual
+    );
   };
 
-  type Statement = {
-    type: Type;
-    rels: Map<string, Visual | undefined>;
-    context?: string;
+  const notKeyword = (token: string, expected: string): void => {
+    if ([...Keywords].includes(token as any)) error(expected, token);
   };
-  const statements: Map<string, Statement> = new Map();
 
   const BLANKS = ["\t", " ", "\n"];
   const skipBlanks = (): void => {
-    while (cursor.index < source.length) {
-      const char = source.charAt(cursor.index);
+    Object.assign(token_to, pos);
+    while (pos.ix < code.length) {
+      const char = code.charAt(pos.ix);
       if (char === "\n") {
-        cursor.index++;
-        cursor.line++;
-        cursor.line_index = cursor.index;
-      } else if (BLANKS.includes(char)) cursor.index++;
-      else break;
+        pos.line++;
+        pos.line_ix = ++pos.ix;
+      } else if (BLANKS.includes(char)) {
+        pos.ix++;
+      } else break;
     }
   };
 
-  const nextToken = (): string => {
+  const nextToken = (): Token => {
     skipBlanks();
     let partial = "";
     let token = "";
     let char = "";
-    while (cursor.index < source.length) {
-      if (parser.index != cursor.index) {
-        parser.index = cursor.index;
-        parser.line = cursor.line;
-        parser.line_index = cursor.line_index;
-        parser.token_index = cursor.index;
-      }
-      char = source.charAt(cursor.index);
+    Object.assign(token_from, pos);
+    Object.assign(token_to, pos);
+    while (pos.ix < code.length) {
+      char = code.charAt(pos.ix);
       if (
         (char >= "a" && char <= "z") ||
         (char >= "A" && char <= "Z") ||
@@ -92,190 +100,63 @@ export const parse = (source: string): Node => {
       ) {
         partial += char;
         token += char;
-        cursor.index++;
-        if (parser.line === cursor.line) parser.index = cursor.index;
+        pos.ix++;
       } else if (![",", ...BLANKS].includes(char)) {
         error("identifier", char);
       } else {
         skipBlanks();
-        if (cursor.index < source.length) {
-          char = source.charAt(cursor.index);
+        if (pos.ix < code.length) {
+          char = code.charAt(pos.ix);
           if (char !== ",") break;
           partial = "";
           token += char;
-          cursor.index++;
-          if (parser.line === cursor.line) parser.index = cursor.index;
+          pos.ix++;
           skipBlanks();
         }
       }
     }
-    return token;
+    return { token, source: source() };
   };
 
-  const notKeyword = (token: string, expected: string): void => {
-    if ([...Keywords].includes(token as any)) error(expected, token);
-  };
-
-  const parseStatement = (type: Type): Type => {
-    const name = nextToken();
+  const parseStatement = (type: Token): Token => {
+    const { token: name, source } = nextToken();
     !name && error("name", "nothing");
     name.indexOf(",") > 0 && error("name", "names");
     notKeyword(name, "name");
-    !statements.has(name) && statements.set(name, { type, rels: new Map() });
 
-    let token = nextToken();
-    if (type.includes(token as Type)) return token as Type; // declaration only
+    !statements.has(name) &&
+      statements.set(name, {
+        type: type.token as Type,
+        source: type.source,
+        rels: new Map(),
+      });
+    const statement = statements.get(name)!;
+    if (statement.type !== type.token) error(statement.type, type.token);
+    statement.source.to = source.to;
 
-    const statement = statements.get(name);
-    const grammar = artifacts[type].grammar();
-    while (token in grammar) {
-      const rel = grammar[token as EdgeType];
-      const names = nextToken();
+    let next = nextToken();
+    if (Types.includes(next.token as Type)) return next; // declaration only
+    const grammar = artifacts[type.token as Type].grammar();
+    while (next.token in grammar) {
+      const rel = grammar[next.token as Action];
+      const { token: names, source } = nextToken();
       !names && error("names", "nothing");
       names.split(",").forEach((n) => notKeyword(n.trim(), "names"));
       names
         .split(",")
         .filter(Boolean)
-        .forEach((n) =>
-          statement?.rels.set(n, rel === "artifacts" ? undefined : rel)
-        );
-      token = nextToken();
+        .forEach((n) => statement?.rels.set(n, rel!));
+      statement.source.to = source.to;
+      next = nextToken();
     }
-    return token as Type;
+    return next;
   };
 
-  const newContext = (id = ""): ContextNode => ({
-    id,
-    visual: "context",
-    artifact: artifacts.context,
-    nodes: new Map(),
-    edges: new Set(),
-    refs: new Map(),
-    x: 0,
-    y: 0,
-  });
-
-  const nodes = new Map<string, Node>();
-  const newNode = (
-    context: ContextNode,
-    id: string,
-    visual: Visual,
-    artifact: Artifact
-  ): Node => {
-    const found = nodes.get(id);
-    if (found) {
-      if (found.visual !== visual) error(`${id} as ${found.visual}`, visual);
-      if (visual !== "event") return found;
-    }
-    const node = {
-      id,
-      visual,
-      artifact,
-      context: found?.context || context.id,
-    };
-    nodes.set(id, node);
-    return node;
-  };
-
-  const addNode = (context: ContextNode, id: string): void => {
-    const statement = statements.get(id);
-    if (statement && statement.type !== "context" && !statement.context) {
-      statement.context = context.id;
-      const artifact = artifacts[statement.type];
-      const node = newNode(context, id, statement.type, artifact);
-      statement.rels.forEach((visual, id) => {
-        const rel = statements.get(id);
-        (rel?.type || visual) === "context" && error("component", id); // nested context
-        !visual && !rel && error("declared component", id); // orphans
-        const ref_node = newNode(
-          context,
-          id,
-          visual || rel!.type,
-          artifacts[(visual as Type) || rel!.type]
-        );
-        // ignore when ref found in another context
-        if (ref_node.context === context.id) {
-          const edge = artifact.edge(node, ref_node);
-          edge && context.edges.add(edge);
-          context.nodes.set(id, ref_node);
-        }
-      });
-      context.nodes.set(id, node);
-    }
-  };
-
-  let type = nextToken() as Type;
-  while (type) {
-    if (Types.includes(type)) {
-      type = parseStatement(type);
-    } else error("keyword", type);
+  let next = nextToken();
+  while (next.token.length) {
+    if (Types.includes(next.token as Type)) next = parseStatement(next);
+    else if (next.token.length) error("keyword", next.token);
   }
 
-  const root = newContext();
-  statements.forEach((statement, id) => {
-    if (statement.type === "context") {
-      const node = newContext(id);
-      statement.rels.forEach((_, id) => addNode(node, id));
-      root.nodes.set(id, node);
-    }
-  });
-
-  // put orphans in global context
-  const global = newContext("global");
-  statements.forEach((statement, id) => {
-    if (statement.type !== "context" && !statement.context) {
-      addNode(global, id);
-    }
-  });
-  global.nodes.size && root.nodes.set("global", global);
-
-  // connect the model!
-  const ctxedges = new Set<string>();
-  statements.forEach((statement, id) => {
-    if (statement.type !== "context") {
-      const artifact = artifacts[statement.type];
-      const node = nodes.get(id)!;
-      const ctx = node.context!;
-
-      statement.rels.forEach((visual, id) => {
-        const ref_node = nodes.get(id)!;
-        const ref_ctx = ref_node.context!;
-
-        // connect contexts
-        if (ctx !== ref_ctx) {
-          const ctx_node = root.nodes.get(ctx)!;
-          const ref_ctx_node = root.nodes.get(ref_ctx)!;
-          const sys =
-            statement.type === "aggregate" || statement.type === "system";
-          const is_consumer =
-            (visual === "event" && !sys) ||
-            (visual === "command" && sys) ||
-            (visual === "projector" && statement.type !== "projector");
-          const producer = is_consumer ? ref_ctx_node : ctx_node;
-          const consumer = is_consumer ? ctx_node : ref_ctx_node;
-          const edge = artifacts.context.edge(producer, consumer);
-          if (edge) {
-            const key = `${producer.id}->${consumer.id}`;
-            if (!ctxedges.has(key)) {
-              root.edges.add(edge);
-              ctxedges.add(key);
-            }
-          }
-        }
-
-        // connect refs
-        const ref = artifact.ref(node!, ref_node!);
-        if (ref) {
-          const context = root.nodes.get(ref.host.context!)! as ContextNode;
-          !context.refs.has(ref.host.id) &&
-            context.refs.set(ref.host.id, new Map());
-          context.refs
-            .get(ref.host.id)!
-            .set(`${ref.host.id},${ref.target.id}`, ref);
-        }
-      });
-    }
-  });
-
-  return root;
+  return statements;
 };

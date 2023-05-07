@@ -1,6 +1,3 @@
-export { square } from "./layout";
-export * from "./types";
-
 import { Actor } from "./Actor";
 import { Aggregate } from "./Aggregate";
 import { Context } from "./Context";
@@ -8,9 +5,9 @@ import { Policy } from "./Policy";
 import { Process } from "./Process";
 import { Projector } from "./Projector";
 import { System } from "./System";
-import { Artifact, Type } from "./types";
+import { Artifacts } from "./types";
 
-export const artifacts: { [key in Type]: Artifact } = {
+export const artifacts: Artifacts = {
   actor: new Actor(),
   aggregate: new Aggregate(),
   context: new Context(),
@@ -19,3 +16,4 @@ export const artifacts: { [key in Type]: Artifact } = {
   projector: new Projector(),
   system: new System(),
 };
+export * from "./types";

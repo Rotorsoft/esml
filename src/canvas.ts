@@ -18,6 +18,7 @@ type State = {
   x?: number;
   y?: number;
   zoom?: number;
+  font?: string;
   svg?: string;
 };
 
@@ -39,6 +40,7 @@ export class Canvas extends EventEmitter {
   dy = 0;
 
   zoom = 1;
+  font = "inconsolata";
   x = 0;
   y = 0;
   w = 0;
@@ -146,12 +148,13 @@ export class Canvas extends EventEmitter {
         x: this.x,
         y: this.y,
         zoom: this.zoom,
+        font: this.font,
       } as State);
     }
   }
 
-  public render({ code, x, y, zoom }: State): Error | undefined {
-    const { error, svg } = esml(code, this.SCALE);
+  public render({ code, x, y, zoom, font }: State): Error | undefined {
+    const { error, svg } = esml(code, this.SCALE, font!);
     if (error) return error;
     this.svg.innerHTML = svg!;
     const root = this.svg.firstElementChild;
@@ -163,6 +166,7 @@ export class Canvas extends EventEmitter {
       this.y = y;
       this.zoom = zoom;
     }
+    font && (this.font = font);
     this.transform();
   }
 }

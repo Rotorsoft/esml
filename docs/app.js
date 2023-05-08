@@ -1,6 +1,16 @@
 const sample = `
+## WolfDesk Ticket Service
+
+# Actors 
+actor Customer invokes 
+	OpenTicket, AddMessage, RequestTicketEscalation
+actor AgentActor invokes 
+	AddMessage, CloseTicket
+
+# Ticket is the main aggregate
 aggregate Ticket
-handles OpenTicket, AssignTicket, AddMessage,
+handles 
+	OpenTicket, AssignTicket, AddMessage,
 	CloseTicket, RequestTicketEscalation,
     EscalateTicket, ReassignTicket,
     MarkMessageDelivered, AcknowledgeMessage
@@ -9,78 +19,83 @@ emits
     TicketClosed, TicketEscalated, TicketReassigned,
     MessageDelivered, MessageRead, TicketEscalationRequested,
     TicketResolved
-    
 
+# Policies to handle new ticket assignment and escalation
 policy Assignment handles TicketOpened 
 invokes AssignTicket, ReassignTicket
-reads Tickets
+reads Tickets, Agents
 
-policy RequestEscalation
-handles TicketEscalationRequested
+policy RequestEscalation handles TicketEscalationRequested
 invokes EscalateTicket, CloseTicket
-reads Tickets
+reads Tickets, Agents
 
+# Automatically close tickets after resolution
 policy Closing handles TicketResolved invokes CloseTicket
 reads Tickets
 
+# A projection of current ticket states is used to drive policies
 projector Tickets
 handles 
 	TicketOpened, TicketAssigned, MessageAdded,
     TicketClosed, TicketEscalated, TicketReassigned,
     MessageDelivered, MessageRead, TicketEscalationRequested,
     TicketResolved
-    
-actor Customer invokes OpenTicket, AddMessage, RequestTicketEscalation
-actor Agent invokes AddMessage, CloseTicket
 
+# Let's put all of the above in the same context
+context TicketLifecycle includes
+	Ticket, Tickets, Assignment, 
+	RequestEscalation, Closing,
+	Customer, AgentActor
+
+# We will need a messaging subdomain
+context MessagingSystem includes Messaging
+process Messaging
+	invokes MarkMessageDelivered, AcknowledgeMessage
+    handles MessageAdded
+	reads Tickets
+
+# Billing context
 system Billing
 handles BillTenant emits TenantBilled
 
 policy BillingPolicy handles TicketResolved
-invokes BillTenant,AddTenant
-reads Tickets
+invokes BillTenant, AddTenant reads Tickets, Tenants
 
+context BillingSystem includes Billing, BillingPolicy
+
+# Admin context
 aggregate Tenant handles AddTenant emits TenantAdded
+aggregate Agent handles AddAgent emits AgentAdded
+aggregate Product handles AddProduct emits ProductAdded
 
-context Admin includes Tenant
-
-actor Phil invokes AddTenant
-
-process ARandomProcessManager
-reads Tickets, AnotherProjection
-
-process Messaging
-invokes MarkMessageDelivered, AcknowledgeMessage
-
-
-context TicketLifecycle
-includes Ticket, Tickets, Assignment, 
-RequestEscalation, Closing,
-Customer, Agent, Messaging
+context Admin includes
+	Tenant, Agent, Product
 `;
 
 const Store = () => {
   const KEY = "ESML-Cache";
-  let _x, _y, _z;
+  let _x, _y, _z, _f;
 
   const load = () => {
     const cache = localStorage.getItem(KEY);
     if (cache) {
-      const { code, x, y, zoom } = JSON.parse(cache);
+      const { code, x, y, zoom, font } = JSON.parse(cache);
       _x = x;
       _y = y;
       _z = zoom;
-      return { code, x, y, zoom };
+      _f = font || "Inconsolata";
+      return { code, x, y, zoom, font };
     }
-    return { code: sample };
+    return { code: sample, font: "Inconsolata" };
   };
 
-  const save = esml.debounce(({ code, x, y, zoom }) => {
+  const save = esml.debounce(({ code, x, y, zoom, font }) => {
     if (!code) return;
     x = _x = x || _x;
     y = _y = y || _y;
     zoom = _z = zoom || _z;
-    localStorage.setItem(KEY, JSON.stringify({ code, x, y, zoom }));
+    font = _f = font || _f;
+    localStorage.setItem(KEY, JSON.stringify({ code, x, y, zoom, font }));
   }, 3000);
 
   return { load, save };
@@ -97,9 +112,13 @@ const Editor = (canvas, bus) => {
       startState: function () {
         return { inSymbol: false };
       },
-      token: function (stream, state) {
+      token: function (stream) {
         if (stream.sol()) stream.eatSpace();
         if (stream.eol()) return null;
+        if (stream.match("#")) {
+          stream.skipToEnd();
+          return "comment";
+        }
         if (stream.match(keywords)) return "keyword";
         stream.next();
         return null;
@@ -113,9 +132,9 @@ const Editor = (canvas, bus) => {
     theme: "default",
   });
 
-  const refresh = esml.debounce((code, x, y, zoom) => {
+  const refresh = esml.debounce(({ code, x, y, zoom, font }) => {
     editor.getAllMarks().forEach((mark) => mark.clear());
-    const error = canvas.render({ code, x, y, zoom });
+    const error = canvas.render({ code, x, y, zoom, font });
     if (error) {
       const { message, source } = error;
       if (source) {
@@ -129,10 +148,10 @@ const Editor = (canvas, bus) => {
     }
     parse_err.style.display = "none";
     parse_err.innerText = "";
-    bus.emit("refreshed", code);
+    bus.emit("refreshed", { code, x, y, zoom, font });
   }, 500);
 
-  editor.on("change", () => refresh(editor.getValue()));
+  editor.on("change", () => refresh({ code: editor.getValue() }));
 
   const show = () =>
     !codemirror.classList.contains("show") &&
@@ -155,10 +174,11 @@ const Editor = (canvas, bus) => {
     show,
     hide,
     code: () => editor.getValue(),
-    load: ({ code, x, y, zoom }) => {
+    load: ({ code, x, y, zoom, font }) => {
       editor.setValue(code);
-      refresh(code, x, y, zoom);
+      refresh({ code, x, y, zoom, font });
     },
+    refresh,
   };
 };
 
@@ -184,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
   editor.load(cache);
 
   setTimeout(() => {
-    bus.on("refreshed", (code) => store.save({ code }));
+    bus.on("refreshed", (e) => store.save(e));
     canvas.on("transformed", ({ x, y, zoom }) =>
       store.save({ code: editor.code(), x, y, zoom })
     );
@@ -192,4 +212,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.onmousemove = (e) => e.x < 100 && e.movementX < -10 && editor.show();
   container.onclick = () => editor.hide();
+
+  const fontSelector = document.getElementById("font-selector");
+  const fontList = document.getElementById("font-list");
+  const selectFont = (font, close = false) => {
+    fontSelector.innerText = font;
+    fontSelector.classList = `btn dropdown-toggle ${font}`;
+    if (close) {
+      fontSelector.click();
+      editor.refresh({ code: editor.code(), font });
+    }
+  };
+  fontList
+    .querySelectorAll("a")
+    .forEach((n) => (n.onclick = () => selectFont(n.innerText, true)));
+  selectFont(cache.font);
 });

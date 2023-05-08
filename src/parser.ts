@@ -36,13 +36,20 @@ type Pos = {
 };
 
 /**
- * Syntax
+ * Grammar
  *
- * - `actor` ActorName [`invokes` CommandName,...]
- * - `<aggregate|system>` SystemName [`handles` CommandName,...] [`emits` EventName,...]
- * - `<policy|process>` PolicyName [`handles` EventName,...] [`invokes` CommandName,...]
- * - `projector` ProjectorName [`handles` EventName,...]
- * - `context` ContextName [`includes` ArtifactName,...]
+ * - `comment` ::= "#" [^\\n]* "\\n"
+ * - `name` ::= [a-zA-Z] [a-zA-Z0-9]*
+ * - `names` ::= `name` {"," `name`}*
+ * - `actor` ::= "actor" `name` ["invokes" `names`]*
+ * - `aggregate` ::= "aggregate" `name` { ["handles" `names`] | ["emits" `names`] }*
+ * - `system` ::= "system" `name` { ["handles" `names`] | ["emits" `names`] }*
+ * - `policy` ::= "policy" `name` { ["handles" `names`] | ["invokes" `names`] }*
+ * - `process` ::= "process" `name` { ["handles" `names`] | ["invokes" `names`] }*
+ * - `projector` ::= "projector" `name` ["handles" `names`]*
+ * - `context` ::= "context" `name` ["includes" `names`]*
+ * - `statement` ::= `actor` | `aggregate` | `system` | `policy` | `process` | `projector` | `context`
+ * - `esml` ::= { `comment` | `statement` }*
  */
 export const parse = (code: string): Map<string, Statement> => {
   const statements: Map<string, Statement> = new Map();
@@ -71,21 +78,26 @@ export const parse = (code: string): Map<string, Statement> => {
   };
 
   const BLANKS = ["\t", " ", "\n"];
-  const skipBlanks = (): void => {
+  const skipBlanksAndComments = (): void => {
     Object.assign(token_to, pos);
     while (pos.ix < code.length) {
-      const char = code.charAt(pos.ix);
+      let char = code.charAt(pos.ix);
       if (char === "\n") {
         pos.line++;
         pos.line_ix = ++pos.ix;
       } else if (BLANKS.includes(char)) {
         pos.ix++;
+      } else if (char === "#") {
+        do {
+          pos.ix++;
+          char = code.charAt(pos.ix);
+        } while (pos.ix < code.length && char !== "\n");
       } else break;
     }
   };
 
   const nextToken = (): Token => {
-    skipBlanks();
+    skipBlanksAndComments();
     let partial = "";
     let token = "";
     let char = "";
@@ -104,14 +116,14 @@ export const parse = (code: string): Map<string, Statement> => {
       } else if (![",", ...BLANKS].includes(char)) {
         error("identifier", char);
       } else {
-        skipBlanks();
+        skipBlanksAndComments();
         if (pos.ix < code.length) {
           char = code.charAt(pos.ix);
           if (char !== ",") break;
           partial = "";
           token += char;
           pos.ix++;
-          skipBlanks();
+          skipBlanksAndComments();
         }
       }
     }

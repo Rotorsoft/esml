@@ -2,13 +2,20 @@
 
 ESML, which stands for `Event Storming Modeling Language`, aims to create a user-friendly grammar that accurately describes the components of Event Storming Models with a level of detail that enables precise rendering of diagrams.
 
-## Syntax
+## Grammar
 
-- `actor` ActorName [`invokes` CommandName,...]
-- `<aggregate|system>` SystemName [`handles` CommandName,...] [`emits` EventName,...]
-- `<policy|process>` PolicyName [`handles` EventName,...] [`invokes` CommandName,...] [`reads` ProjectionName,...]
-- `projector` ProjectorName [`handles` EventName,...]
-- `context` ContextName [`includes` ArtifactName,...]
+- `comment` ::= "#" [^\\n]\* "\\n"
+- `name` ::= [a-zA-Z] [a-zA-Z0-9]\*
+- `names` ::= `name` {"," `name`}\*
+- `actor` ::= "actor" `name` ["invokes" `names`]\*
+- `aggregate` ::= "aggregate" `name` { ["handles" `names`] | ["emits" `names`] }\*
+- `system` ::= "system" `name` { ["handles" `names`] | ["emits" `names`] }\*
+- `policy` ::= "policy" `name` { ["handles" `names`] | ["invokes" `names`] }\*
+- `process` ::= "process" `name` { ["handles" `names`] | ["invokes" `names`] }\*
+- `projector` ::= "projector" `name` ["handles" `names`]\*
+- `context` ::= "context" `name` ["includes" `names`]\*
+- `statement` ::= `actor` | `aggregate` | `system` | `policy` | `process` | `projector` | `context`
+- `esml` ::= { `comment` | `statement` }\*
 
 ## API
 
@@ -64,6 +71,11 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 ## Playground
 
 Enjoy playing with ESML at [Playground](https://rotorsoft.github.io/esml/)
+
+## CDN
+
+<https://cdn.jsdelivr.net/npm/@rotorsoft/esml/dist/canvas.min.js>
+<https://unpkg.com/@rotorsoft/esml/dist/canvas.js>
 
 ## Sample Model
 

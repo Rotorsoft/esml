@@ -927,10 +927,10 @@
                 error(expected, token);
         };
         const BLANKS = ["\t", " ", "\n"];
-        const skipBlanks = () => {
+        const skipBlanksAndComments = () => {
             Object.assign(token_to, pos);
             while (pos.ix < code.length) {
-                const char = code.charAt(pos.ix);
+                let char = code.charAt(pos.ix);
                 if (char === "\n") {
                     pos.line++;
                     pos.line_ix = ++pos.ix;
@@ -938,12 +938,18 @@
                 else if (BLANKS.includes(char)) {
                     pos.ix++;
                 }
+                else if (char === "#") {
+                    do {
+                        pos.ix++;
+                        char = code.charAt(pos.ix);
+                    } while (pos.ix < code.length && char !== "\n");
+                }
                 else
                     break;
             }
         };
         const nextToken = () => {
-            skipBlanks();
+            skipBlanksAndComments();
             let partial = "";
             let token = "";
             let char = "";
@@ -962,7 +968,7 @@
                     error("identifier", char);
                 }
                 else {
-                    skipBlanks();
+                    skipBlanksAndComments();
                     if (pos.ix < code.length) {
                         char = code.charAt(pos.ix);
                         if (char !== ",")
@@ -970,7 +976,7 @@
                         partial = "";
                         token += char;
                         pos.ix++;
-                        skipBlanks();
+                        skipBlanksAndComments();
                     }
                 }
             }
@@ -1019,12 +1025,19 @@
         return statements;
     };
 
-    const esml = (code, scale) => {
+    const FONTS = {
+        monospace: { family: "Monospace", widthScale: 1.3, heightScale: 0.4 },
+        inconsolata: { family: "Inconsolata", widthScale: 1.5, heightScale: 0.4 },
+        caveat: { family: "Caveat", widthScale: 2.1, heightScale: 0.4 },
+        handlee: { family: "Handlee", widthScale: 1.7, heightScale: 0.4 },
+    };
+    const DEFAULT_FONT = "inconsolata";
+    const esml = (code, scale, font = DEFAULT_FONT) => {
         const config = {
             arrowSize: 0.5,
             gravity: Math.round(+1),
             background: "#f8f9fa",
-            font: { family: "Handlee", widthScale: 1.7, heightScale: 0.4 },
+            font: FONTS[font.toLowerCase()] || FONTS[DEFAULT_FONT],
             fontSize: 12,
             leading: 1.25,
             lineWidth: 1,
@@ -1062,6 +1075,7 @@
             this.dx = 0;
             this.dy = 0;
             this.zoom = 1;
+            this.font = "inconsolata";
             this.x = 0;
             this.y = 0;
             this.w = 0;
@@ -1140,11 +1154,12 @@
                     x: this.x,
                     y: this.y,
                     zoom: this.zoom,
+                    font: this.font,
                 });
             }
         }
-        render({ code, x, y, zoom }) {
-            const { error, svg } = esml(code, this.SCALE);
+        render({ code, x, y, zoom, font }) {
+            const { error, svg } = esml(code, this.SCALE, font);
             if (error)
                 return error;
             this.svg.innerHTML = svg;
@@ -1157,6 +1172,7 @@
                 this.y = y;
                 this.zoom = zoom;
             }
+            font && (this.font = font);
             this.transform();
         }
     }

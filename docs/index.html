@@ -31,6 +31,7 @@
     <style>
       body {
         background-color: #f8f9fa;
+        font-family: "Inconsolata";
       }
       ::-webkit-scrollbar {
         height: 0px;
@@ -39,6 +40,7 @@
       .CodeMirror {
         height: 100%;
         font-size: 14px;
+        font-family: monospace;
         background-color: transparent;
       }
       .cm-error {
@@ -57,7 +59,7 @@
         z-index: 501;
       }
       #coords {
-        font-family: monospace;
+        font-family: "Inconsolata";
         font-size: 10px;
         color: #c5bfbf;
       }
@@ -81,15 +83,73 @@
       .overlay-panel.show {
         transform: translateX(0);
       }
+      #menu {
+        border-radius: 5px;
+        box-shadow: 0px 2px 2px rgba(58, 56, 56, 0.5);
+      }
+      #menu * {
+        font-weight: bold;
+        border: none;
+      }
+      #menu button:hover {
+        background-color: #e5e8f0;
+        transition: 0.7s;
+      }
+      .monospace {
+        font-family: monospace;
+      }
+      .inconsolata {
+        font-family: "Inconsolata";
+      }
+      .caveat {
+        font-family: "Caveat";
+      }
+      .handlee {
+        font-family: "Handlee";
+      }
     </style>
   </head>
   <body>
     <div class="row justify-content-end">
-      <div class="col-auto position-fixed bottom-0 end-0">
+      <div class="col-auto position-fixed bottom-0 start-0">
         <span id="coords" class="badge bg-transparent">Coords</span>
-        <span id="zoom" class="badge bg-transparent text-muted">Zoom</span>
-        <button id="fit" type="button" class="btn" title="Fit to screen">
-          <i class="bi bi-arrows-fullscreen"></i>
+      </div>
+      <div
+        id="menu"
+        class="col-auto position-fixed bottom-0 end-0 m-2 p-2 bg-white dropup-center dropup"
+      >
+        <button
+          id="font-selector"
+          class="btn dropdown-toggle"
+          type="button"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="true"
+          aria-expanded="false"
+        >
+          Monospace
+        </button>
+        <ul id="font-list" class="dropdown-menu">
+          <li>
+            <a class="dropdown-item monospace">Monospace</a>
+          </li>
+          <li>
+            <a class="dropdown-item inconsolata">Inconsolata</a>
+          </li>
+          <li>
+            <a class="dropdown-item caveat">Caveat</a>
+          </li>
+          <li>
+            <a class="dropdown-item handlee">Handlee</a>
+          </li>
+        </ul>
+        <span id="zoom" class="m-2 p-2">Zoom</span>
+        <button
+          id="fit"
+          type="button"
+          class="btn m-0 p-2"
+          title="Fit to screen"
+        >
+          <i class="bi m-2 bi-arrows-fullscreen"></i>
         </button>
       </div>
     </div>

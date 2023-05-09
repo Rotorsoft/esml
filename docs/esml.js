@@ -1100,10 +1100,12 @@
         fitToContainer() {
             const vw = this.container.clientWidth;
             const vh = this.container.clientHeight;
-            this.fitZoom(Math.min(vw / this.w, vh / this.h));
-            this.x = Math.floor((vw - this.w * this.zoom) / 2);
-            this.y = Math.floor((vh - this.h * this.zoom) / 2);
-            this.transform();
+            if (this.w && this.h && vw && vh) {
+                this.fitZoom(Math.min(vw / this.w, vh / this.h));
+                this.x = Math.floor((vw - this.w * this.zoom) / 2);
+                this.y = Math.floor((vh - this.h * this.zoom) / 2);
+                this.transform();
+            }
         }
         fitZoom(z) {
             this.zoom = Math.round(Math.min(Math.max(0.1, z), 3) * 100) / 100;

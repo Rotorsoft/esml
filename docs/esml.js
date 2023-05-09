@@ -25,18 +25,23 @@
 
     class Actor {
         grammar() {
-            return { invokes: { visual: "command", owns: true } };
-        }
-        edge(node, ref) {
             return {
-                start: node.id,
-                end: ref.id,
-                dashed: false,
-                arrow: true,
+                invokes: { visual: "command", owns: true },
+                reads: { visual: "projector", owns: false },
             };
         }
-        ref() {
-            return undefined;
+        edge(node, ref) {
+            if (ref.visual === "command")
+                return {
+                    start: node.id,
+                    end: ref.id,
+                    dashed: false,
+                    arrow: true,
+                };
+        }
+        ref(node, ref) {
+            if (ref.visual === "projector")
+                return { hostId: node.id, target: ref };
         }
     }
 
@@ -358,10 +363,10 @@
         node.width = config.scale * 2;
         node.height = config.scale;
     };
-    const half_square = (node, config) => {
+    const half_rectangle = (node, config) => {
         node.x = 0;
         node.y = 0;
-        node.width = config.scale / 2;
+        node.width = config.scale;
         node.height = config.scale / 2;
     };
     const layout = (root, config) => {
@@ -370,7 +375,7 @@
                 case "context":
                     return layoutContext;
                 case "actor":
-                    return half_square;
+                    return half_rectangle;
                 case "command":
                 case "event":
                     return square;
@@ -587,42 +592,9 @@
             }
         },
     };
-    const actor = {
-        style: {
-            stroke: "#555555",
-            fill: "white",
-        },
-        renderShape: ({ x, y, width, height }, g, config) => {
-            const padding = config.scale / 10;
-            const a = padding / 2;
-            const yp = y + a * 4;
-            const faceCenter = { x: x, y: yp - a };
-            g.translate(width / 4, -height / 2);
-            g.circle(faceCenter, a).stroke();
-            g.path([
-                { x: x, y: yp },
-                { x: x, y: yp + 2 * a },
-            ]).stroke();
-            g.path([
-                { x: x - a, y: yp + a },
-                { x: x + a, y: yp + a },
-            ]).stroke();
-            g.path([
-                { x: x - a, y: yp + a + padding },
-                { x: x, y: yp + padding },
-                { x: x + a, y: yp + a + padding },
-            ]).stroke();
-        },
-        renderContents: (node, g, config) => renderText(node, splitId(node.id), g, config, {
-            fit: false,
-            x: node.x,
-            y: node.y + node.height,
-            fontSize: config.fontSize * 0.8,
-        }),
-    };
     const COLORS = {
         context: "white",
-        actor: "white",
+        actor: "#ffc107",
         aggregate: "#fffabb",
         system: "#eca0c3",
         projector: "#d5f694",
@@ -642,13 +614,7 @@
         },
         renderContents: (node, g, config) => renderText(node, splitId(node.id), g, config),
     });
-    const renderable = (visual) => {
-        if (visual === "context")
-            return context;
-        if (visual === "actor")
-            return actor;
-        return note(visual);
-    };
+    const renderable = (visual) => visual === "context" ? context : note(visual);
     const renderNode = (node, g, config) => {
         const { style, renderShape, renderContents } = renderable(node.visual);
         const dx = Math.floor(node.x - node.width / 2);
@@ -1075,7 +1041,6 @@
             this.dx = 0;
             this.dy = 0;
             this.zoom = 1;
-            this.font = "inconsolata";
             this.x = 0;
             this.y = 0;
             this.w = 0;
@@ -1150,16 +1115,11 @@
                 this.zoomSpan &&
                     (this.zoomSpan.innerText = `${Math.floor(this.zoom * 100)}%`);
                 g.setAttribute("transform", `translate(${this.x}, ${this.y}) scale(${this.zoom})`);
-                this.emit("transformed", {
-                    x: this.x,
-                    y: this.y,
-                    zoom: this.zoom,
-                    font: this.font,
-                });
+                this.emit("transformed", { x: this.x, y: this.y, zoom: this.zoom });
             }
         }
-        render({ code, x, y, zoom, font }) {
-            const { error, svg } = esml(code, this.SCALE, font);
+        render(state) {
+            const { error, svg } = esml(state.code, this.SCALE, state.font);
             if (error)
                 return error;
             this.svg.innerHTML = svg;
@@ -1167,12 +1127,11 @@
             const rootBox = root?.getBoundingClientRect();
             this.w = Math.floor(rootBox?.width);
             this.h = Math.floor(rootBox?.height);
-            if (x && y && zoom) {
-                this.x = x;
-                this.y = y;
-                this.zoom = zoom;
+            if (state.zoom) {
+                this.x = state.x || 0;
+                this.y = state.y || 0;
+                this.zoom = state.zoom;
             }
-            font && (this.font = font);
             this.transform();
         }
     }

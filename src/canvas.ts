@@ -15,11 +15,10 @@ type Options = {
 
 type State = {
   code: string;
+  font: string;
   x?: number;
   y?: number;
   zoom?: number;
-  font?: string;
-  svg?: string;
 };
 
 export declare interface Canvas {
@@ -40,7 +39,6 @@ export class Canvas extends EventEmitter {
   dy = 0;
 
   zoom = 1;
-  font = "inconsolata";
   x = 0;
   y = 0;
   w = 0;
@@ -144,29 +142,23 @@ export class Canvas extends EventEmitter {
         "transform",
         `translate(${this.x}, ${this.y}) scale(${this.zoom})`
       );
-      this.emit("transformed", {
-        x: this.x,
-        y: this.y,
-        zoom: this.zoom,
-        font: this.font,
-      } as State);
+      this.emit("transformed", { x: this.x, y: this.y, zoom: this.zoom });
     }
   }
 
-  public render({ code, x, y, zoom, font }: State): Error | undefined {
-    const { error, svg } = esml(code, this.SCALE, font!);
+  public render(state: State): Error | undefined {
+    const { error, svg } = esml(state.code, this.SCALE, state.font);
     if (error) return error;
     this.svg.innerHTML = svg!;
     const root = this.svg.firstElementChild;
     const rootBox = root?.getBoundingClientRect();
     this.w = Math.floor(rootBox?.width!);
     this.h = Math.floor(rootBox?.height!);
-    if (x && y && zoom) {
-      this.x = x;
-      this.y = y;
-      this.zoom = zoom;
+    if (state.zoom) {
+      this.x = state.x || 0;
+      this.y = state.y || 0;
+      this.zoom = state.zoom;
     }
-    font && (this.font = font);
     this.transform();
   }
 }

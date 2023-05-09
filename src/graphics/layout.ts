@@ -19,10 +19,10 @@ const rectangle: Layouter = (node: Node, config: Config) => {
   node.height = config.scale;
 };
 
-const half_square: Layouter = (node: Node, config: Config) => {
+const half_rectangle: Layouter = (node: Node, config: Config) => {
   node.x = 0;
   node.y = 0;
-  node.width = config.scale / 2;
+  node.width = config.scale;
   node.height = config.scale / 2;
 };
 
@@ -32,7 +32,7 @@ export const layout = (root: ContextNode, config: Config) => {
       case "context":
         return layoutContext as Layouter;
       case "actor":
-        return half_square;
+        return half_rectangle;
       case "command":
       case "event":
         return square;

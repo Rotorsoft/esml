@@ -2,17 +2,21 @@ import { Artifact, Grammar, Node } from "./types";
 
 export class Actor implements Artifact {
   grammar() {
-    return { invokes: { visual: "command", owns: true } } as Grammar;
+    return {
+      invokes: { visual: "command", owns: true },
+      reads: { visual: "projector", owns: false },
+    } as Grammar;
   }
   edge(node: Node, ref: Node) {
-    return {
-      start: node.id,
-      end: ref.id,
-      dashed: false,
-      arrow: true,
-    };
+    if (ref.visual === "command")
+      return {
+        start: node.id,
+        end: ref.id,
+        dashed: false,
+        arrow: true,
+      };
   }
-  ref() {
-    return undefined;
+  ref(node: Node, ref: Node) {
+    if (ref.visual === "projector") return { hostId: node.id, target: ref };
   }
 }

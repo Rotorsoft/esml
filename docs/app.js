@@ -1,11 +1,13 @@
-const sample = `
-## WolfDesk Ticket Service
+const sample = `## WolfDesk Ticket Service
 
 # Actors 
 actor Customer invokes 
 	OpenTicket, AddMessage, RequestTicketEscalation
+    reads Tickets
 actor AgentActor invokes 
 	AddMessage, CloseTicket
+    reads Tickets
+    
 
 # Ticket is the main aggregate
 aggregate Ticket
@@ -72,36 +74,39 @@ context Admin includes
 	Tenant, Agent, Product
 `;
 
+const SRC_KEY = "ESML-Cache";
+const POS_KEY = "ESML_Position";
+
 const Store = () => {
-  const KEY = "ESML-Cache";
-  let _x, _y, _z, _f;
+  let src = { code: sample, font: "Inconsolata" },
+    pos = { x: 0, y: 0, zoom: 1 };
 
   const load = () => {
-    const cache = localStorage.getItem(KEY);
-    if (cache) {
-      const { code, x, y, zoom, font } = JSON.parse(cache);
-      _x = x;
-      _y = y;
-      _z = zoom;
-      _f = font || "Inconsolata";
-      return { code, x, y, zoom, font };
-    }
-    return { code: sample, font: "Inconsolata" };
+    const src_cache = localStorage.getItem(SRC_KEY);
+    src_cache && (src = JSON.parse(src_cache));
+    const pos_cache = localStorage.getItem(POS_KEY);
+    pos_cache && (pos = JSON.parse(pos_cache));
+    return { ...src, ...pos };
   };
 
-  const save = esml.debounce(({ code, x, y, zoom, font }) => {
-    if (!code) return;
-    x = _x = x || _x;
-    y = _y = y || _y;
-    zoom = _z = zoom || _z;
-    font = _f = font || _f;
-    localStorage.setItem(KEY, JSON.stringify({ code, x, y, zoom, font }));
-  }, 3000);
+  const save = esml.debounce((state) => {
+    if (state.code || state.font) {
+      state.code && (src.code = state.code);
+      state.font && (src.font = state.font);
+      localStorage.setItem(SRC_KEY, JSON.stringify(src));
+    }
+    if (state.zoom) {
+      pos.x = state.x;
+      pos.y = state.y;
+      pos.zoom = state.zoom;
+      localStorage.setItem(POS_KEY, JSON.stringify(pos));
+    }
+  }, 1000);
 
   return { load, save };
 };
 
-const Editor = (canvas, bus) => {
+const Controller = (canvas, bus) => {
   const codemirror = document.getElementById("codemirror");
   const parse_err = document.getElementById("parse-error");
   const textarea = document.getElementById("code");
@@ -132,9 +137,12 @@ const Editor = (canvas, bus) => {
     theme: "default",
   });
 
-  const refresh = esml.debounce(({ code, x, y, zoom, font }) => {
+  let lastFont;
+  const refresh = esml.debounce((state) => {
     editor.getAllMarks().forEach((mark) => mark.clear());
-    const error = canvas.render({ code, x, y, zoom, font });
+    state.code = state.code || editor.getValue();
+    state.font = lastFont = state.font || lastFont;
+    const error = canvas.render(state);
     if (error) {
       const { message, source } = error;
       if (source) {
@@ -148,10 +156,10 @@ const Editor = (canvas, bus) => {
     }
     parse_err.style.display = "none";
     parse_err.innerText = "";
-    bus.emit("refreshed", { code, x, y, zoom, font });
+    bus.emit("refreshed", state);
   }, 500);
 
-  editor.on("change", () => refresh({ code: editor.getValue() }));
+  editor.on("change", () => refresh({}));
 
   const show = () =>
     !codemirror.classList.contains("show") &&
@@ -173,12 +181,10 @@ const Editor = (canvas, bus) => {
   return {
     show,
     hide,
-    code: () => editor.getValue(),
-    load: ({ code, x, y, zoom, font }) => {
-      editor.setValue(code);
-      refresh({ code, x, y, zoom, font });
+    load: (state) => {
+      state.code && editor.setValue(state.code);
+      refresh(state);
     },
-    refresh,
   };
 };
 
@@ -198,20 +204,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const store = Store();
   const bus = new esml.EventEmitter();
-  const editor = Editor(canvas, bus);
+  const controller = Controller(canvas, bus);
 
-  const cache = store.load();
-  editor.load(cache);
-
-  setTimeout(() => {
-    bus.on("refreshed", (e) => store.save(e));
-    canvas.on("transformed", ({ x, y, zoom }) =>
-      store.save({ code: editor.code(), x, y, zoom })
-    );
-  }, 1000);
-
-  document.onmousemove = (e) => e.x < 100 && e.movementX < -10 && editor.show();
-  container.onclick = () => editor.hide();
+  document.onmousemove = (e) =>
+    e.x < 100 && e.movementX < -10 && controller.show();
+  container.onclick = () => controller.hide();
 
   const fontSelector = document.getElementById("font-selector");
   const fontList = document.getElementById("font-list");
@@ -220,11 +217,20 @@ document.addEventListener("DOMContentLoaded", () => {
     fontSelector.classList = `btn dropdown-toggle ${font}`;
     if (close) {
       fontSelector.click();
-      editor.refresh({ code: editor.code(), font });
+      store.save({ font });
+      controller.load({ font });
     }
   };
   fontList
     .querySelectorAll("a")
     .forEach((n) => (n.onclick = () => selectFont(n.innerText, true)));
+
+  const cache = store.load();
+  controller.load(cache);
   selectFont(cache.font);
+
+  setTimeout(() => {
+    bus.on("refreshed", (state) => store.save(state));
+    canvas.on("transformed", (state) => store.save(state));
+  }, 1000);
 });

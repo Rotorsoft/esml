@@ -206,44 +206,9 @@ const context: Renderable = {
   },
 };
 
-const actor: Renderable = {
-  style: {
-    stroke: "#555555",
-    fill: "white",
-  },
-  renderShape: ({ x, y, width, height }: Node, g: Graphics, config: Config) => {
-    const padding = config.scale / 10;
-    const a = padding / 2;
-    const yp = y! + a * 4;
-    const faceCenter = { x: x!, y: yp - a };
-    g.translate(width! / 4, -height! / 2);
-    g.circle(faceCenter, a).stroke();
-    g.path([
-      { x: x!, y: yp },
-      { x: x!, y: yp + 2 * a },
-    ]).stroke();
-    g.path([
-      { x: x! - a, y: yp + a },
-      { x: x! + a, y: yp + a },
-    ]).stroke();
-    g.path([
-      { x: x! - a, y: yp + a + padding },
-      { x: x!, y: yp + padding },
-      { x: x! + a, y: yp + a + padding },
-    ]).stroke();
-  },
-  renderContents: (node, g, config) =>
-    renderText(node, splitId(node.id), g, config, {
-      fit: false,
-      x: node.x!,
-      y: node.y! + node.height!,
-      fontSize: config.fontSize * 0.8,
-    }),
-};
-
 const COLORS: { [key in Visual]: string } = {
   context: "white",
-  actor: "white",
+  actor: "#ffc107",
   aggregate: "#fffabb",
   system: "#eca0c3",
   projector: "#d5f694",
@@ -265,11 +230,8 @@ const note = (visual: Visual): Renderable => ({
     renderText(node, splitId(node.id), g, config),
 });
 
-const renderable = (visual: Visual) => {
-  if (visual === "context") return context;
-  if (visual === "actor") return actor;
-  return note(visual);
-};
+const renderable = (visual: Visual) =>
+  visual === "context" ? context : note(visual);
 
 const renderNode = (node: Node, g: Graphics, config: Config) => {
   const { style, renderShape, renderContents } = renderable(node.visual);

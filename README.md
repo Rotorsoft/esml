@@ -7,11 +7,11 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 - `comment` ::= "#" [^\\n]\* "\\n"
 - `name` ::= [a-zA-Z] [a-zA-Z0-9]\*
 - `names` ::= `name` {"," `name`}\*
-- `actor` ::= "actor" `name` ["invokes" `names`]\*
+- `actor` ::= "actor" `name` { ["invokes" `names`] | ["reads" `names`] }\*
 - `aggregate` ::= "aggregate" `name` { ["handles" `names`] | ["emits" `names`] }\*
 - `system` ::= "system" `name` { ["handles" `names`] | ["emits" `names`] }\*
-- `policy` ::= "policy" `name` { ["handles" `names`] | ["invokes" `names`] }\*
-- `process` ::= "process" `name` { ["handles" `names`] | ["invokes" `names`] }\*
+- `policy` ::= "policy" `name` { ["handles" `names`] | ["invokes" `names`] | ["reads" `names`] }\*
+- `process` ::= "process" `name` { ["handles" `names`] | ["invokes" `names`] | ["reads" `names`] }\*
 - `projector` ::= "projector" `name` ["handles" `names`]\*
 - `context` ::= "context" `name` ["includes" `names`]\*
 - `statement` ::= `actor` | `aggregate` | `system` | `policy` | `process` | `projector` | `context`

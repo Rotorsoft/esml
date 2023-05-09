@@ -74,47 +74,84 @@ Enjoy playing with ESML at [Playground](https://rotorsoft.github.io/esml/)
 
 ## CDN
 
-<https://cdn.jsdelivr.net/npm/@rotorsoft/esml/dist/canvas.min.js>
-<https://unpkg.com/@rotorsoft/esml/dist/canvas.js>
+- <https://cdn.jsdelivr.net/npm/@rotorsoft/esml/docs/esml.min.js>
+- <https://unpkg.com/@rotorsoft/esml/docs/esml.js>
 
 ## Sample Model
 
 ```bash
-actor Customer invokes BookRoom
-actor HotelManager invokes OpenRoom
+## WolfDesk Ticket Service
 
-aggregate Room
-  handles OpenRoom,   BookRoom, CleanRoom
-  emits RoomOpened, RoomBooked,RoomCleaned
-
-  projector Hotel
-
-policy AVeryLongPolicyName
-  handles RoomBooked
-  invokes CleanRoom
-
-projector
-
-Hotel
-  handles   RoomOpened,  RoomBooked
+# Actors
+actor Customer invokes
+ OpenTicket, AddMessage, RequestTicketEscalation
+    reads Tickets
+actor AgentActor invokes
+ AddMessage, CloseTicket
+    reads Tickets
 
 
+# Ticket is the main aggregate
+aggregate Ticket
+handles
+ OpenTicket, AssignTicket, AddMessage,
+ CloseTicket, RequestTicketEscalation,
+    EscalateTicket, ReassignTicket,
+    MarkMessageDelivered, AcknowledgeMessage
+emits
+ TicketOpened, TicketAssigned, MessageAdded,
+    TicketClosed, TicketEscalated, TicketReassigned,
+    MessageDelivered, MessageRead, TicketEscalationRequested,
+    TicketResolved
 
-policy OrderPolicy
-    handles RoomBooked
-  invokes PlaceOrder
+# Policies to handle new ticket assignment and escalation
+policy Assignment handles TicketOpened
+invokes AssignTicket, ReassignTicket
+reads Tickets, Agents
 
-aggregate Order
-   handles PlaceOrder
-  emits   OrderPlaced
+policy RequestEscalation handles TicketEscalationRequested
+invokes EscalateTicket, CloseTicket
+reads Tickets, Agents
 
-  context HotelService
-  includes Customer,  HotelManager,Room,AVeryLongPolicyName, Hotel
+# Automatically close tickets after resolution
+policy Closing handles TicketResolved invokes CloseTicket
+reads Tickets
 
-context OrderService
-  includes Order,, , OrderPolicy
+# A projection of current ticket states is used to drive policies
+projector Tickets
+handles
+ TicketOpened, TicketAssigned, MessageAdded,
+    TicketClosed, TicketEscalated, TicketReassigned,
+    MessageDelivered, MessageRead, TicketEscalationRequested,
+    TicketResolved
 
-context AThirdService includes AThirdPolicy
+# Let's put all of the above in the same context
+context TicketLifecycle includes
+ Ticket, Tickets, Assignment,
+ RequestEscalation, Closing,
+ Customer, AgentActor
 
-policy AThirdPolicy handles AThirdEvent,AnotherOne
+# We will need a messaging subdomain
+context MessagingSystem includes Messaging
+process Messaging
+ invokes MarkMessageDelivered, AcknowledgeMessage
+    handles MessageAdded
+ reads Tickets
+
+# Billing context
+system Billing
+handles BillTenant emits TenantBilled
+
+policy BillingPolicy handles TicketResolved
+invokes BillTenant, AddTenant reads Tickets, Tenants
+
+context BillingSystem includes Billing, BillingPolicy
+
+# Admin context
+aggregate Tenant handles AddTenant emits TenantAdded
+aggregate Agent handles AddAgent emits AgentAdded
+aggregate Product handles AddProduct emits ProductAdded
+
+context Admin includes
+ Tenant, Agent, Product
 ```

@@ -45,8 +45,8 @@ export class Canvas extends EventEmitter {
   h = 0;
 
   constructor(
-    document: Document,
-    container: HTMLDivElement,
+    private document: Document,
+    private container: HTMLDivElement,
     options?: Options
   ) {
     super();
@@ -58,7 +58,10 @@ export class Canvas extends EventEmitter {
       this.zoomSpan = options.zoomSpan;
       this.fitBtn = options.fitBtn;
     }
-    this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    this.svg = this.document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg"
+    );
     this.svg.setAttributeNS(
       "http://www.w3.org/2000/xmlns/",
       "xmlns:xlink",
@@ -70,9 +73,9 @@ export class Canvas extends EventEmitter {
     );
     this.svg.setAttribute("width", `${this.WIDTH}`);
     this.svg.setAttribute("height", `${this.HEIGHT}`);
-    container.appendChild(this.svg);
+    this.container.appendChild(this.svg);
 
-    container.addEventListener("wheel", (e: WheelEvent) => {
+    this.container.addEventListener("wheel", (e: WheelEvent) => {
       e.preventDefault();
       if (e.metaKey || e.ctrlKey) {
         this.fitZoom(this.zoom + e.deltaY * -0.01);
@@ -87,12 +90,12 @@ export class Canvas extends EventEmitter {
       this.dragging = true;
       this.dx = clientX;
       this.dy = clientY;
-      container.style.cursor = "grabbing";
+      this.container.style.cursor = "grabbing";
     };
 
     const dragEnd = () => {
       this.dragging = false;
-      container.style.cursor = "default";
+      this.container.style.cursor = "default";
     };
 
     const drag = ({ clientX, clientY }: Pos) => {
@@ -103,22 +106,26 @@ export class Canvas extends EventEmitter {
       }
     };
 
-    container.addEventListener("mousedown", dragStart);
-    container.addEventListener("mouseup", dragEnd);
-    container.addEventListener("mousemove", drag);
-    container.addEventListener("touchstart", (e) => dragStart(e.touches[0]));
-    container.addEventListener("touchend", dragEnd);
-    container.addEventListener("touchmove", (e) => drag(e.touches[0]));
+    this.container.addEventListener("mousedown", dragStart);
+    this.container.addEventListener("mouseup", dragEnd);
+    this.container.addEventListener("mousemove", drag);
+    this.container.addEventListener("touchstart", (e) =>
+      dragStart(e.touches[0])
+    );
+    this.container.addEventListener("touchend", dragEnd);
+    this.container.addEventListener("touchmove", (e) => drag(e.touches[0]));
 
     this.fitBtn &&
-      (this.fitBtn.onclick = () => {
-        const vw = container.clientWidth;
-        const vh = container.clientHeight;
-        this.fitZoom(Math.min(vw / this.w, vh / this.h));
-        this.x = Math.floor((vw - this.w * this.zoom) / 2);
-        this.y = Math.floor((vh - this.h * this.zoom) / 2);
-        this.transform();
-      });
+      (this.fitBtn.onclick = () => this.fitToContainer.apply(this));
+  }
+
+  public fitToContainer() {
+    const vw = this.container.clientWidth;
+    const vh = this.container.clientHeight;
+    this.fitZoom(Math.min(vw / this.w, vh / this.h));
+    this.x = Math.floor((vw - this.w * this.zoom) / 2);
+    this.y = Math.floor((vh - this.h * this.zoom) / 2);
+    this.transform();
   }
 
   private fitZoom(z: number) {

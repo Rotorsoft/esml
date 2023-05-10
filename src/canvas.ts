@@ -157,13 +157,15 @@ export class Canvas extends EventEmitter {
   }
 
   public render(state: State): Error | undefined {
-    const { error, svg } = esml(state.code, this.SCALE, state.font);
+    const { error, svg, width, height } = esml(
+      state.code,
+      this.SCALE,
+      state.font
+    );
     if (error) return error;
     this.svg.innerHTML = svg!;
-    const root = this.svg.firstElementChild;
-    const rootBox = root?.getBoundingClientRect();
-    this.w = Math.floor(rootBox?.width!);
-    this.h = Math.floor(rootBox?.height!);
+    this.w = Math.floor(width!);
+    this.h = Math.floor(height!);
     if (state.zoom) {
       this.x = state.x || 0;
       this.y = state.y || 0;

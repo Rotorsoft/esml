@@ -16,6 +16,7 @@ import {
   rotate,
   splitId,
 } from "../utils";
+import { svg } from "./svg";
 import { Graphics, Renderable } from "./types";
 
 const pickFontSize = (words: string[], w: number) => {
@@ -247,15 +248,13 @@ const renderNode = (node: Node, g: Graphics, config: Config) => {
   g.ungroup();
 };
 
-export const render = (
-  root: ContextNode,
-  g: Graphics,
-  config: Config
-): void => {
+export const render = (root: ContextNode, config: Config): string => {
+  const g = svg();
   g.setData("name", "root");
   g.setFontFamily(config.font.family);
   g.setFont(config.fontSize);
   g.textAlign("left");
   g.lineWidth(config.lineWidth);
   context.renderContents(root, g, config);
+  return g.serialize();
 };

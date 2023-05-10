@@ -1,6 +1,6 @@
 import { Config, Font } from "./artifacts";
 import { CompilerError, compile } from "./compiler";
-import { renderSvg } from "./graphics";
+import { layout, render } from "./graphics";
 import { ParseError, parse } from "./parser";
 
 const FONTS: Record<string, Font> = {
@@ -15,7 +15,7 @@ export const esml = (
   code: string,
   scale: number,
   font = DEFAULT_FONT
-): { error?: Error; svg?: string } => {
+): { error?: Error; svg?: string; width?: number; height?: number } => {
   const config: Config = {
     arrowSize: 0.5,
     gravity: Math.round(+1),
@@ -41,10 +41,10 @@ export const esml = (
     //       )}:${pad(s.source.to.col, 3)}] ${s.type} ${id} ${s.rels.size} rels`
     //   )
     // );
-
     const root = compile(statements);
-
-    return { svg: renderSvg(root, config) };
+    layout(root, config);
+    const svg = render(root, config);
+    return { svg, width: root.width, height: root.height };
   } catch (error: any) {
     if (error instanceof ParseError) return { error };
     if (error instanceof CompilerError) return { error };

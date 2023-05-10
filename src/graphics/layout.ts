@@ -1,5 +1,4 @@
-import * as graphre from "graphre";
-import { EdgeLabel, GraphLabel, GraphNode } from "graphre/decl/types";
+import * as dagre from "dagre";
 import { splitId } from "../utils";
 import { Config, ContextNode, Node, Visual } from "../artifacts";
 
@@ -43,10 +42,10 @@ export const layout = (root: ContextNode, config: Config) => {
 
   const layoutContext = (node: ContextNode, config: Config) => {
     if (node.nodes.size) {
-      const g = new graphre.Graph<GraphLabel, GraphNode, EdgeLabel>({
+      const graph = new dagre.graphlib.Graph({
         multigraph: true,
       });
-      g.setGraph({
+      graph.setGraph({
         nodesep: config.spacing,
         edgesep: config.spacing,
         ranksep: config.spacing,
@@ -56,23 +55,23 @@ export const layout = (root: ContextNode, config: Config) => {
       });
       node.nodes.forEach((n) => layouter(n.visual)(n, config));
       node.nodes.forEach(({ id, width, height }) =>
-        g.setNode(id, { width, height })
+        graph.setNode(id, { width, height })
       );
       const edges = [...node.edges.values()].map((edge, index) => {
-        g.setEdge(edge.start, edge.end, {}, `${index}`);
+        graph.setEdge(edge.start, edge.end, {}, `${index}`);
         return edge;
       });
-      graphre.layout(g);
+      dagre.layout(graph);
 
       node.nodes.forEach((n) => {
-        const gn = g.node(n.id);
+        const gn = graph.node(n.id);
         n!.x = gn.x;
         n!.y = gn.y;
       });
 
       const r = [0, 0, 0, 0];
-      for (const e of g.edges()) {
-        const ge = g.edge(e);
+      for (const e of graph.edges()) {
+        const ge = graph.edge(e);
         const ne = edges[parseInt(e.name!)];
         const start = node.nodes.get(e.v);
         const end = node.nodes.get(e.w);
@@ -87,11 +86,9 @@ export const layout = (root: ContextNode, config: Config) => {
           r[3] = r[3] < y ? r[3] : y;
         }); //left,right,top,bottom
       }
-      const graph = g.graph();
-      const width = Math.max(graph.width!, r[1] - r[0]);
-      const height = Math.max(graph.height!, r[3] - r[2]);
-      node.width = width + 2 * config.padding;
-      node.height = height + 2 * config.padding;
+      const { width = 0, height = 0 } = graph.graph();
+      node.width = Math.max(width, r[1] - r[0]) + 2 * config.padding;
+      node.height = Math.max(height, r[3] - r[2]) + 2 * config.padding;
     } else {
       node.width =
         config.padding * 2 +

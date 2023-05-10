@@ -18,15 +18,6 @@ export const rotate = (a: Vector) => ({ x: a.y, y: -a.x });
 
 export const pad = (n: number, l: number) => n.toString().padStart(l);
 export const splitId = (text: string) => text.trim().split(/(?=[A-Z])/);
-export const range = (
-  [min, max]: [min: number, max: number],
-  count: number
-): number[] => {
-  var output = [];
-  for (var i = 0; i < count; i++)
-    output.push(min + ((max - min) * i) / (count - 1));
-  return output;
-};
 
 type F = (this: ThisParameterType<void>, ...args: any[]) => void;
 export const debounce = (func: F, delay: number): F => {

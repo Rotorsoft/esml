@@ -1,4 +1,4 @@
-import { Vector, add, range } from "../utils";
+import { Vector } from "../utils";
 import { Graphics } from "./types";
 
 interface SvgAttr {
@@ -6,8 +6,6 @@ interface SvgAttr {
   stroke?: string;
   "stroke-width"?: number;
   "stroke-dasharray"?: string;
-  "stroke-linejoin"?: string;
-  "stroke-linecap"?: string;
   fill?: string;
   "text-align"?: string;
   font?: string;
@@ -143,7 +141,6 @@ export function svg(): Graphics {
   var current: GroupElement = new GroupElement(root as GroupElement);
   current.attr = initialState;
   root.children.push(current);
-  var inPathBuilderMode = false;
 
   function tracePath(
     path: Vector[],
@@ -181,30 +178,6 @@ export function svg(): Graphics {
     ungroup: function () {
       if (current.parent) current = current.parent;
     },
-    circle: function (p: Vector, r: number) {
-      return el("circle", { r: r, cx: p.x, cy: p.y });
-    },
-    ellipse: function (center, w, h, start = 0, stop = 0) {
-      if (start || stop) {
-        var path = range([start, stop], 64).map((a) =>
-          add(center, { x: (Math.cos(a) * w) / 2, y: (Math.sin(a) * h) / 2 })
-        );
-        return tracePath(path);
-      } else {
-        return el("ellipse", {
-          cx: center.x,
-          cy: center.y,
-          rx: w / 2,
-          ry: h / 2,
-        });
-      }
-    },
-    arc: function (cx, cy, r /*, start, stop*/) {
-      return el("ellipse", { cx, cy, rx: r, ry: r });
-    },
-    roundRect: function (x, y, width, height, r) {
-      return el("rect", { x, y, rx: r, ry: r, height, width });
-    },
     rect: function (x, y, width, height, style?: string) {
       return el("rect", { x, y, height, width, style: style || "" });
     },
@@ -232,16 +205,6 @@ export function svg(): Graphics {
     fillStyle: function (fill) {
       current.attr!.fill = fill;
     },
-    arcTo: function (x1, y1, x2, y2) {
-      if (inPathBuilderMode)
-        current.children.at(-1)!.attr.d +=
-          "L" + x1 + " " + y1 + " L" + x2 + " " + y2 + " ";
-      else throw new Error("can only be called after .beginPath()");
-    },
-    beginPath: function () {
-      inPathBuilderMode = true;
-      return el("path", { d: "" });
-    },
     fillText: function (text, x, y, fill, dy) {
       const attr = { x, y, fill, stroke: fill } as Record<
         string,
@@ -253,21 +216,8 @@ export function svg(): Graphics {
       dy && (attr["dy"] = dy);
       return el("text", attr, text);
     },
-    lineTo: function (x, y) {
-      if (inPathBuilderMode)
-        current.children.at(-1)!.attr.d +=
-          "L" + x.toFixed(1) + " " + y.toFixed(1) + " ";
-      else throw new Error("can only be called after .beginPath()");
-      return current;
-    },
     lineWidth: function (w) {
       current.attr!["stroke-width"] = w;
-    },
-    moveTo: function (x, y) {
-      if (inPathBuilderMode)
-        current.children.at(-1)!.attr.d +=
-          "M" + x.toFixed(1) + " " + y.toFixed(1) + " ";
-      else throw new Error("can only be called after .beginPath()");
     },
     setData: function (name: string, value: string) {
       current.data = current.data ?? {};
@@ -278,7 +228,6 @@ export function svg(): Graphics {
         d.length === 0 ? "none" : d[0] + " " + d[1];
     },
     stroke: function () {
-      inPathBuilderMode = false;
       current.children.at(-1)!.stroke();
     },
     textAlign: function (a) {

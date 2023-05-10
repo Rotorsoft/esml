@@ -1,6 +1,6 @@
 {
   "name": "@rotorsoft/esml",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Event Storming Modeling Language",
   "author": "rotorsoft <rotorsoft@outlook.com>",
   "license": "MIT",

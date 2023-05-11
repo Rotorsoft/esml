@@ -20,15 +20,12 @@ import { svg } from "./svg";
 import { Graphics, Renderable } from "./types";
 
 const pickFontSize = (words: string[], w: number) => {
-  const wordLengths = words.map((w) => w.length);
-  const maxWord = wordLengths.sort().at(-1) || 0;
-  const pairLenghts =
-    wordLengths.map((l, i) => (i ? wordLengths[i - 1] + l + 1 : l)) || 0;
-  const maxPair = pairLenghts.sort().at(-1) || 0;
-  const minSize = Math.floor(w / 8);
-  const size1 = Math.max(Math.floor(w / maxWord), minSize);
-  const size2 = Math.max(Math.floor(w / maxPair), minSize);
-  return Math.floor(Math.min(size1, size2, 30));
+  const max =
+    words
+      .map((word) => word.length)
+      .sort()
+      .at(-1)! + 1;
+  return Math.floor(Math.min(Math.max(w / max, 8), 24));
 };
 
 const sizeText = (
@@ -38,8 +35,8 @@ const sizeText = (
 ): { lines: string[]; fontSize: number } => {
   let fontSize = pickFontSize(text, w);
   while (fontSize > 5) {
-    const maxWidth = Math.floor(w / fontSize);
-    const maxHeight = Math.floor(h / fontSize);
+    const maxWidth = Math.floor(w / fontSize) - 1;
+    const maxHeight = Math.floor(h / fontSize) - 1;
     const lines: string[] = [];
     let line = text[0];
     let n = 1;
@@ -83,7 +80,7 @@ const renderText = (
   const height = options.height || node.height || 0;
 
   const { lines, fontSize } = options.fit
-    ? sizeText(text, width * config.font.widthScale, height * 0.8)
+    ? sizeText(text, width, height)
     : {
         lines: text,
         fontSize: options.fontSize || config.fontSize,
@@ -94,7 +91,7 @@ const renderText = (
   const y = options.y || Math.floor(height / 2);
   const m = Math.floor(lines.length / 2);
   const h = config.font.heightScale;
-  const o = lines.length % 2 ? h : h * 2;
+  const o = lines.length % 2 ? h : h * 3;
   lines.forEach((line, i) => {
     g.fillText(line, x, y, style.stroke, `${(i - m) * 1.2 + o}em`);
   });

@@ -195,7 +195,7 @@ export function svg(): Graphics {
       weight?: "bold" | "normal",
       style?: "italic" | "normal"
     ): void {
-      current.attr!["font-size"] = size + "px";
+      current.attr!["font-size"] = size + "pt";
       weight && (current.attr!["font-weight"] = weight);
       style && (current.attr!["font-style"] = style);
     },

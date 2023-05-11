@@ -4,10 +4,10 @@ import { layout, render } from "./graphics";
 import { ParseError, parse } from "./parser";
 
 const FONTS: Record<string, Font> = {
-  monospace: { family: "Monospace", widthScale: 1.3, heightScale: 0.4 },
-  inconsolata: { family: "Inconsolata", widthScale: 1.5, heightScale: 0.4 },
-  caveat: { family: "Caveat", widthScale: 2.1, heightScale: 0.4 },
-  handlee: { family: "Handlee", widthScale: 1.7, heightScale: 0.4 },
+  monospace: { family: "Monospace", heightScale: 0.3 },
+  inconsolata: { family: "Inconsolata", heightScale: 0.3 },
+  caveat: { family: "Caveat", heightScale: 0.25 },
+  handlee: { family: "Handlee", heightScale: 0.3 },
 };
 const DEFAULT_FONT = "inconsolata";
 

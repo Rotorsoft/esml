@@ -1,6 +1,6 @@
 import { Vector } from "../utils";
 
-export type Font = { family: string; widthScale: number; heightScale: number };
+export type Font = { family: string; heightScale: number };
 export type Config = {
   padding: number;
   stroke: string;

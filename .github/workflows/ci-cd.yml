@@ -56,4 +56,4 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run release
-          echo "🚀 ${TAG} released succesfully! 🚀"
+          echo "Released 🚀"

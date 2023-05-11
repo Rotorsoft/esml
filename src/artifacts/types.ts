@@ -1,10 +1,9 @@
 import { Vector } from "../utils";
 
-export type Font = { family: string; heightScale: number };
 export type Config = {
   padding: number;
   stroke: string;
-  font: Font;
+  font: string;
   leading: number;
   fontSize: number;
   lineWidth: number;

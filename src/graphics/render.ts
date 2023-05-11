@@ -20,12 +20,11 @@ import { svg } from "./svg";
 import { Graphics, Renderable } from "./types";
 
 const pickFontSize = (words: string[], w: number) => {
-  const max =
-    words
-      .map((word) => word.length)
-      .sort()
-      .at(-1)! + 1;
-  return Math.floor(Math.min(Math.max(w / max, 8), 24));
+  const max = words
+    .map((word) => word.length)
+    .sort((a, b) => b - a)
+    .at(0)!;
+  return Math.floor(Math.min(Math.max(Math.ceil(w / max), 8), 24));
 };
 
 const sizeText = (
@@ -35,7 +34,7 @@ const sizeText = (
 ): { lines: string[]; fontSize: number } => {
   let fontSize = pickFontSize(text, w);
   while (fontSize > 5) {
-    const maxWidth = Math.floor(w / fontSize) - 1;
+    const maxWidth = Math.ceil(w / fontSize) - 1;
     const maxHeight = Math.floor(h / fontSize) - 1;
     const lines: string[] = [];
     let line = text[0];
@@ -90,8 +89,7 @@ const renderText = (
   const x = options.x || Math.floor(width / 2);
   const y = options.y || Math.floor(height / 2);
   const m = Math.floor(lines.length / 2);
-  const h = config.font.heightScale;
-  const o = lines.length % 2 ? h : h * 3;
+  const o = lines.length % 2 ? 0.3 : 0.9;
   lines.forEach((line, i) => {
     g.fillText(line, x, y, style.stroke, `${(i - m) * 1.2 + o}em`);
   });
@@ -152,8 +150,8 @@ const renderRefs = (
 
   const x = Math.floor(host.x! - host.width! / 2 - config.scale * 0.2);
   const y = Math.floor(host.y! + host.height! * 0.4);
-  const w = Math.floor(host.width!);
-  const h = Math.floor(config.scale * 0.4);
+  const w = Math.floor(config.scale);
+  const h = Math.floor(config.scale / 2);
 
   g.group(0, 0);
   {
@@ -185,12 +183,8 @@ const context: Renderable = {
     if (isContextNode(node)) {
       if (node.id) {
         const words = splitId(node.id);
-        g.fillText(
-          words.join(" "),
-          config.fontSize * words.length,
-          -config.fontSize,
-          context.style.stroke
-        );
+        g.textAlign("left");
+        g.fillText(words.join(" "), 0, -config.fontSize, context.style.stroke);
       }
       g.group(config.padding, config.padding);
       {
@@ -248,7 +242,7 @@ const renderNode = (node: Node, g: Graphics, config: Config) => {
 export const render = (root: ContextNode, config: Config): string => {
   const g = svg();
   g.setData("name", "root");
-  g.setFontFamily(config.font.family);
+  g.setFontFamily(config.font);
   g.setFont(config.fontSize);
   g.textAlign("left");
   g.lineWidth(config.lineWidth);

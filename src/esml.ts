@@ -1,13 +1,14 @@
-import { Config, Font } from "./artifacts";
+import { Config } from "./artifacts";
 import { CompilerError, compile } from "./compiler";
 import { layout, render } from "./graphics";
 import { ParseError, parse } from "./parser";
 
-const FONTS: Record<string, Font> = {
-  monospace: { family: "Monospace", heightScale: 0.3 },
-  inconsolata: { family: "Inconsolata", heightScale: 0.3 },
-  caveat: { family: "Caveat", heightScale: 0.25 },
-  handlee: { family: "Handlee", heightScale: 0.3 },
+type Font = "monospace" | "inconsolata" | "caveat" | "handlee";
+const FONTS: { [key in Font]: string } = {
+  monospace: "Monospace",
+  inconsolata: "Inconsolata",
+  caveat: "Caveat",
+  handlee: "Handlee",
 };
 const DEFAULT_FONT = "inconsolata";
 
@@ -20,7 +21,7 @@ export const esml = (
     arrowSize: 0.5,
     gravity: Math.round(+1),
     background: "#f8f9fa",
-    font: FONTS[font.toLowerCase()] || FONTS[DEFAULT_FONT],
+    font: FONTS[font.toLowerCase() as Font] || FONTS[DEFAULT_FONT],
     fontSize: 12,
     leading: 1.25,
     lineWidth: 1,

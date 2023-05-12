@@ -5,7 +5,7 @@ export class Context implements Artifact {
     return { includes: { visual: "artifact", owns: true } } as Grammar;
   }
   edge(node: Node, ref: Node, dashed = false, arrow = true) {
-    return { start: node.id, end: ref.id, dashed, arrow };
+    return { start: node.id, end: ref.id, render: true, dashed, arrow };
   }
   ref() {
     return undefined;

@@ -12,6 +12,7 @@ export class Actor implements Artifact {
       return {
         start: node.id,
         end: ref.id,
+        render: true,
         dashed: false,
         arrow: true,
       };

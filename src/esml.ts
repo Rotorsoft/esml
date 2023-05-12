@@ -1,4 +1,4 @@
-import { Config } from "./artifacts";
+import { Style } from "./artifacts";
 import { CompilerError, compile } from "./compiler";
 import { layout, render } from "./graphics";
 import { ParseError, parse } from "./parser";
@@ -17,18 +17,15 @@ export const esml = (
   scale: number,
   font = DEFAULT_FONT
 ): { error?: Error; svg?: string; width?: number; height?: number } => {
-  const config: Config = {
-    arrowSize: 0.5,
-    gravity: Math.round(+1),
-    background: "#f8f9fa",
+  const style: Style = {
+    scale,
+    stroke: "#DDDDDD",
+    fill: "white",
     font: FONTS[font.toLowerCase() as Font] || FONTS[DEFAULT_FONT],
     fontSize: 12,
-    leading: 1.25,
-    lineWidth: 1,
+    strokeWidth: 1,
     padding: 12,
-    spacing: 40,
-    stroke: "#DDDDDD",
-    scale,
+    margin: 40,
   };
 
   try {
@@ -43,8 +40,8 @@ export const esml = (
     //   )
     // );
     const root = compile(statements);
-    layout(root, config);
-    const svg = render(root, config);
+    layout(root, style);
+    const svg = render(root, style);
     return { svg, width: root.width, height: root.height };
   } catch (error: any) {
     if (error instanceof ParseError) return { error };

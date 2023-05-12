@@ -1,17 +1,14 @@
 import { Vector } from "../utils";
 
-export type Config = {
+export type Style = {
+  scale: number;
+  margin: number;
   padding: number;
   stroke: string;
+  fill: string;
   font: string;
-  leading: number;
   fontSize: number;
-  lineWidth: number;
-  background: string;
-  gravity: number;
-  spacing: number;
-  arrowSize: number;
-  scale: number;
+  strokeWidth: number;
 };
 
 export const Types = [
@@ -56,6 +53,7 @@ export type Artifacts = { [key in Type]: Artifact };
 export type Edge = {
   start: string;
   end: string;
+  render: boolean;
   dashed: boolean;
   arrow: boolean;
   path?: Vector[];

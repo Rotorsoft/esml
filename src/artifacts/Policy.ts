@@ -13,6 +13,7 @@ export class Policy implements Artifact {
       return {
         start: ref.id,
         end: node.id,
+        render: true,
         dashed: true,
         arrow: true,
       };

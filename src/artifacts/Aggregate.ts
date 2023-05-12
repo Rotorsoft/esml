@@ -12,12 +12,14 @@ export class Aggregate implements Artifact {
       ? {
           start: ref.id,
           end: node.id,
+          render: false,
           dashed: false,
           arrow: true,
         }
       : {
           start: node.id,
           end: ref.id,
+          render: false,
           dashed: false,
           arrow: false,
         };

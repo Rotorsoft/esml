@@ -13,6 +13,7 @@ export class Process implements Artifact {
       return {
         start: ref.id,
         end: node.id,
+        render: true,
         dashed: true,
         arrow: true,
       };

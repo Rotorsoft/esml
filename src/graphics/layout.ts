@@ -1,31 +1,31 @@
 import * as dagre from "dagre";
+import { ContextNode, Node, Style, Visual } from "../artifacts";
 import { splitId } from "../utils";
-import { Config, ContextNode, Node, Visual } from "../artifacts";
 
-type Layouter = (node: Node, config: Config) => void;
+type Layouter = (node: Node, style: Style) => void;
 
-const square: Layouter = (node: Node, config: Config) => {
+const square: Layouter = (node: Node, style: Style) => {
   node.x = 0;
   node.y = 0;
-  node.width = config.scale;
-  node.height = config.scale;
+  node.width = style.scale;
+  node.height = style.scale;
 };
 
-const rectangle: Layouter = (node: Node, config: Config) => {
+const rectangle: Layouter = (node: Node, style: Style) => {
   node.x = 0;
   node.y = 0;
-  node.width = config.scale * 2;
-  node.height = config.scale;
+  node.width = style.scale * 2;
+  node.height = style.scale;
 };
 
-const half_rectangle: Layouter = (node: Node, config: Config) => {
+const half_rectangle: Layouter = (node: Node, style: Style) => {
   node.x = 0;
   node.y = 0;
-  node.width = config.scale;
-  node.height = config.scale / 2;
+  node.width = style.scale;
+  node.height = style.scale / 2;
 };
 
-export const layout = (root: ContextNode, config: Config) => {
+export const layout = (root: ContextNode, style: Style) => {
   function layouter(visual: Visual): Layouter {
     switch (visual) {
       case "context":
@@ -40,20 +40,20 @@ export const layout = (root: ContextNode, config: Config) => {
     }
   }
 
-  const layoutContext = (node: ContextNode, config: Config) => {
+  const layoutContext = (node: ContextNode, style: Style) => {
     if (node.nodes.size) {
       const graph = new dagre.graphlib.Graph({
         multigraph: true,
       });
       graph.setGraph({
-        nodesep: config.spacing,
-        edgesep: config.spacing,
-        ranksep: config.spacing,
+        nodesep: style.margin,
+        edgesep: style.margin,
+        ranksep: style.margin,
         acyclicer: "greedy",
         rankdir: "LR",
         ranker: "network-simplex",
       });
-      node.nodes.forEach((n) => layouter(n.visual)(n, config));
+      node.nodes.forEach((n) => layouter(n.visual)(n, style));
       node.nodes.forEach(({ id, width, height }) =>
         graph.setNode(id, { width, height })
       );
@@ -87,15 +87,14 @@ export const layout = (root: ContextNode, config: Config) => {
         }); //left,right,top,bottom
       }
       const { width = 0, height = 0 } = graph.graph();
-      node.width = Math.max(width, r[1] - r[0]) + 2 * config.padding;
-      node.height = Math.max(height, r[3] - r[2]) + 2 * config.padding;
+      node.width = Math.max(width, r[1] - r[0]) + 2 * style.padding;
+      node.height = Math.max(height, r[3] - r[2]) + 2 * style.padding;
     } else {
       node.width =
-        config.padding * 2 +
-        splitId(node.id).join(" ").length * config.fontSize;
-      node.height = config.padding * 3 + config.fontSize;
+        style.padding * 2 + splitId(node.id).join(" ").length * style.fontSize;
+      node.height = style.padding * 3 + style.fontSize;
     }
   };
 
-  return layoutContext(root, config);
+  return layoutContext(root, style);
 };

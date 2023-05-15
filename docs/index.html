@@ -64,26 +64,27 @@
         color: #c5bfbf;
       }
       .overlay-panel {
-        margin-top: 30;
-        margin-bottom: 30;
-        padding-right: 10px;
+        margin: 30px 30px 20px 0px;
+        padding: 0px 30px 0px 0px;
         position: fixed;
         top: 0;
         left: 0;
         bottom: 0;
-        background-color: #eeeeeebc;
+        background-color: #ffffffcc;
         z-index: 500;
-        transform: translateX(-95%);
+        transform: translateX(calc(-100% + 30px));
         transition: transform 0.5s ease-in-out;
-        border-radius: 10px;
-        border-top: 1px solid #c5bfbf;
-        border-bottom: 1px solid #c5bfbf;
-        border-right: 1px solid #c5bfbf;
+        border-radius: 15px;
+        box-shadow: 0px 2px 2px rgba(58, 56, 56, 0.5);
+      }
+      .overlay-panel:hover {
+        cursor: pointer;
       }
       .overlay-panel.show {
         transform: translateX(0);
       }
       #menu {
+        background-color: #ffffffcc;
         border-radius: 5px;
         box-shadow: 0px 2px 2px rgba(58, 56, 56, 0.5);
       }
@@ -107,6 +108,14 @@
       .handlee {
         font-family: "Handlee";
       }
+      rect {
+        stroke: none;
+        filter: url("#drop-shadow");
+      }
+      .context > rect {
+        stroke: #efefef;
+        filter: none;
+      }
     </style>
   </head>
   <body>
@@ -116,7 +125,7 @@
       </div>
       <div
         id="menu"
-        class="col-auto position-fixed bottom-0 end-0 m-2 p-2 bg-white dropup-center dropup"
+        class="col-auto position-fixed bottom-0 end-0 m-2 p-2 dropup-center dropup"
       >
         <button
           id="font-selector"
@@ -158,6 +167,11 @@
       <textarea id="code"></textarea>
     </div>
     <div class="w-100 h-100 m-0 p-0" id="container"></div>
+    <svg>
+      <filter id="drop-shadow">
+        <feDropShadow flood-color="#aaaaaa" flood-opacity=".5"></feDropShadow>
+      </filter>
+    </svg>
 
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"

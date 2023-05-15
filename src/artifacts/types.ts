@@ -8,10 +8,9 @@ export type Style = {
   fill: string;
   font: string;
   fontSize: number;
-  strokeWidth: number;
 };
 
-export const Types = [
+export const ArtTypes = [
   "context",
   "actor",
   "aggregate",
@@ -20,52 +19,28 @@ export const Types = [
   "policy",
   "process",
 ] as const;
-export type Type = (typeof Types)[number];
-
 const Messages = ["command", "event"] as const;
-const Visuals = [...Types, ...Messages] as const;
+const Visuals = [...ArtTypes, ...Messages] as const;
 const Actions = ["invokes", "handles", "emits", "includes", "reads"] as const;
-export const Keywords = [...Types, ...Actions] as const;
+export const Keywords = [...ArtTypes, ...Actions] as const;
 
+export type ArtType = (typeof ArtTypes)[number];
 export type Message = (typeof Messages)[number];
 export type Visual = (typeof Visuals)[number];
-export type VisualRel = Message | "projector" | "artifact";
 export type Action = (typeof Actions)[number];
 export type Keyword = (typeof Keywords)[number];
-export type Rel = { visual: VisualRel; owns: boolean };
+export type RelType = Message | "projector" | "artifact";
 
-export type Grammar = { [key in Action]?: Rel };
-export type Edger = (
-  node: Node,
-  ref: Node,
-  dashed?: boolean,
-  arrow?: boolean
-) => Edge | undefined;
-export type Referrer = (node: Node, ref: Node) => Ref | undefined;
-
-export interface Artifact {
-  grammar: () => Grammar;
-  edge: Edger;
-  ref: Referrer;
-}
-export type Artifacts = { [key in Type]: Artifact };
-
-export type Edge = {
-  start: string;
-  end: string;
-  render: boolean;
-  dashed: boolean;
-  arrow: boolean;
-  path?: Vector[];
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-};
-
-export type Ref = {
-  hostId: string;
-  target: Node;
+export const COLORS: { [key in Visual]: string } = {
+  context: "white",
+  actor: "#ffc107",
+  aggregate: "#fffabb",
+  system: "#eca0c3",
+  projector: "#d5f694",
+  policy: "#c595cd",
+  process: "#c595cd",
+  command: "#7adcfb",
+  event: "#ffaa61",
 };
 
 export type Node = {
@@ -78,12 +53,49 @@ export type Node = {
   height?: number;
 };
 
+export type Edge = {
+  sourceId: string;
+  targetId: string;
+  color?: string;
+  dashed?: boolean;
+  arrow?: boolean;
+  path?: Vector[];
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+};
+
+export type Ref = {
+  sourceId: string;
+  target: Node;
+};
+
 export type ContextNode = Node & {
   visual: "context";
   nodes: Map<string, Node>;
-  edges: Set<Edge>;
-  refs: Map<string, Map<string, Ref>>;
+  edges: Map<string, Edge>;
+  refs: Map<string, Ref>;
 };
 
 export const isContextNode = (node: Node): node is ContextNode =>
   "nodes" in node;
+
+type Rule = { visual: RelType; owns: boolean };
+
+export type Artifact = {
+  grammar: { [key in Action]?: Rule };
+  rel: (source: Node, target: Node) => Edge | Ref | undefined;
+};
+
+export type Source = {
+  readonly from: { readonly line: number; readonly col: number };
+  to: { line: number; col: number };
+};
+
+export type Statement = {
+  type: ArtType;
+  source: Source;
+  rels: Map<string, Rule>;
+  context?: string;
+};

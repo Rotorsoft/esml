@@ -1,5 +1,12 @@
-import { ContextNode, Node, Visual, artifacts } from "./artifacts";
-import { Source, Statement } from "./parser";
+import {
+  ContextNode,
+  Edge,
+  Node,
+  Source,
+  Statement,
+  Visual,
+  artifacts,
+} from "./artifacts";
 
 export class CompilerError extends Error {
   constructor(
@@ -25,7 +32,7 @@ const newContext = (id = ""): ContextNode => ({
   id,
   visual: "context",
   nodes: new Map(),
-  edges: new Set(),
+  edges: new Map(),
   refs: new Map(),
   x: 0,
   y: 0,
@@ -53,10 +60,10 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     return node;
   };
 
-  const addNode = (context: ContextNode, id: string): void => {
+  const addNode = (ctx: ContextNode, id: string): void => {
     const statement = statements.get(id);
     if (statement && statement.type !== "context" && !statement.context) {
-      statement.context = context.id;
+      statement.context = ctx.id;
       const node = newNode(statement, id, statement.type, true);
       statement.rels.forEach(({ visual, owns }, id) => {
         const ref = statements.get(id);
@@ -65,16 +72,23 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
           error(statement, "valid relationship", visual);
         else newNode(statement, id, visual, owns);
       });
-      context.nodes.set(id, node);
+      ctx.nodes.set(id, node);
+    } else {
+      // context including orphan statements
+      const node = nodes.get(id);
+      if (node && !node.ctx) {
+        node.ctx = ctx.id;
+        ctx.nodes.set(id, node);
+      }
     }
   };
 
   const root = newContext();
   statements.forEach((statement, id) => {
     if (statement.type === "context") {
-      const node = newContext(id);
-      statement.rels.forEach((_, id) => addNode(node, id));
-      root.nodes.set(id, node);
+      const ctx = newContext(id);
+      statement.rels.forEach((_, id) => addNode(ctx, id));
+      root.nodes.set(id, ctx);
     }
   });
 
@@ -85,7 +99,13 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
       addNode(global, id);
     }
   });
-  global.nodes.size && root.nodes.set("global", global);
+  nodes.forEach((node) => {
+    if (!node.ctx) {
+      node.ctx = global.id;
+      global.nodes.set(node.id, node);
+    }
+  });
+  global.nodes.size && root.nodes.set(global.id, global);
 
   // debug!
   // [...nodes.values()]
@@ -93,50 +113,41 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
   //   .forEach((n) => console.log(n));
 
   // connect the model!
-  const ctxmap = new Set<string>();
   statements.forEach((statement, id) => {
     if (statement.type !== "context") {
       const artifact = artifacts[statement.type];
-      const node = nodes.get(id)!;
-      const ctx = root.nodes.get(node.ctx!)! as ContextNode;
+      const source = nodes.get(id)!;
+      const ctx = root.nodes.get(source.ctx!)! as ContextNode;
 
       statement.rels.forEach(({ visual }, id) => {
-        const rel = nodes.get(id)!;
+        const target = nodes.get(id)!;
+        const rel_ctx = root.nodes.get(target.ctx!)! as ContextNode;
 
         // connect contexts
-        if (rel.ctx && node.ctx !== rel.ctx) {
-          const ref_ctx = root.nodes.get(rel.ctx!)!;
-          const sys =
-            statement.type === "aggregate" || statement.type === "system";
-          const is_consumer =
-            (visual === "event" && !sys) ||
-            (visual === "command" && sys) ||
-            (visual === "projector" && statement.type !== "projector");
-          const producer = is_consumer ? ref_ctx : ctx;
-          const consumer = is_consumer ? ctx : ref_ctx;
-          const edge = artifacts.context.edge(producer, consumer);
+        if (source.ctx !== target.ctx) {
+          const edge = artifacts.context.rel(source, target) as Edge;
           if (edge) {
-            const key = `${producer.id}->${consumer.id}`;
-            if (!ctxmap.has(key)) {
-              root.edges.add(edge);
-              ctxmap.add(key);
-            }
+            const key = `${edge.sourceId}->${edge.targetId}-${
+              edge.color || ""
+            }`;
+            !root.edges.has(key) && root.edges.set(key, edge);
           }
         }
 
-        // connect edges in context
-        if (node.ctx === rel.ctx || rel.visual === "event") {
-          const clone = { ...rel }; // clone rel to allow contexts
-          const edge = artifact.edge(node, clone);
-          edge && ctx.edges.add(edge);
-          ctx.nodes.set(id, clone);
-        }
-
-        // connect refs
-        const ref = artifact.ref(node, rel);
-        if (ref) {
-          !ctx.refs.has(ref.hostId) && ctx.refs.set(ref.hostId, new Map());
-          ctx.refs.get(ref.hostId)!.set(`${ref.hostId},${ref.target.id}`, ref);
+        // connect visuals in context
+        const rel = artifact.rel(source, target);
+        if (rel) {
+          if ("targetId" in rel) {
+            ctx.edges.set(`${rel.sourceId}->${rel.targetId}`, rel);
+            if (rel.targetId === source.id)
+              // clone target as source (event -> policy)
+              ctx.nodes.set(rel.sourceId, { ...target, id: rel.sourceId });
+            else ctx.nodes.set(rel.targetId, target);
+          } else {
+            // set ref in source context when target is a projector (in another ctx)
+            const _ctx = visual === "projector" ? ctx : rel_ctx;
+            _ctx.refs.set(`${rel.sourceId}->${rel.target.id}`, rel);
+          }
         }
       });
     }

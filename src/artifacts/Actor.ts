@@ -1,23 +1,20 @@
-import { Artifact, Grammar, Node } from "./types";
+import { Artifact } from "./types";
 
-export class Actor implements Artifact {
-  grammar() {
-    return {
-      invokes: { visual: "command", owns: true },
-      reads: { visual: "projector", owns: false },
-    } as Grammar;
-  }
-  edge(node: Node, ref: Node) {
-    if (ref.visual === "command")
-      return {
-        start: node.id,
-        end: ref.id,
-        render: true,
-        dashed: false,
-        arrow: true,
-      };
-  }
-  ref(node: Node, ref: Node) {
-    if (ref.visual === "projector") return { hostId: node.id, target: ref };
-  }
-}
+export const Actor: Artifact = {
+  grammar: {
+    invokes: { visual: "command", owns: false },
+    reads: { visual: "projector", owns: false },
+  },
+  rel: (source, target) =>
+    target.visual === "command"
+      ? {
+          // sourceId: source.id,
+          // targetId: target.id,
+          // color: COLORS.command,
+          // arrow: true,
+
+          sourceId: target.id,
+          target: source,
+        }
+      : { sourceId: source.id, target },
+};

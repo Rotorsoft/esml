@@ -1,9 +1,12 @@
-import { Action, Keywords, Rel, Type, Types, artifacts } from "./artifacts";
-
-export type Source = {
-  readonly from: { readonly line: number; readonly col: number };
-  to: { line: number; col: number };
-};
+import {
+  Action,
+  ArtType,
+  ArtTypes,
+  Keywords,
+  Source,
+  Statement,
+  artifacts,
+} from "./artifacts";
 
 type Token = {
   readonly token: string;
@@ -21,13 +24,6 @@ export class ParseError extends Error {
     );
   }
 }
-
-export type Statement = {
-  type: Type;
-  rels: Map<string, Rel>;
-  source: Source;
-  context?: string;
-};
 
 type Pos = {
   ix: number;
@@ -138,7 +134,7 @@ export const parse = (code: string): Map<string, Statement> => {
 
     !statements.has(name) &&
       statements.set(name, {
-        type: type.token as Type,
+        type: type.token as ArtType,
         source: type.source,
         rels: new Map(),
       });
@@ -147,8 +143,8 @@ export const parse = (code: string): Map<string, Statement> => {
     statement.source.to = source.to;
 
     let next = nextToken();
-    if (Types.includes(next.token as Type)) return next; // declaration only
-    const grammar = artifacts[type.token as Type].grammar();
+    if (ArtTypes.includes(next.token as ArtType)) return next; // declaration only
+    const grammar = artifacts[type.token as ArtType].grammar;
     while (next.token in grammar) {
       const rel = grammar[next.token as Action];
       const { token: names, source } = nextToken();
@@ -166,7 +162,7 @@ export const parse = (code: string): Map<string, Statement> => {
 
   let next = nextToken();
   while (next.token.length) {
-    if (Types.includes(next.token as Type)) next = parseStatement(next);
+    if (ArtTypes.includes(next.token as ArtType)) next = parseStatement(next);
     else if (next.token.length) error("keyword", next.token);
   }
 

@@ -19,12 +19,11 @@ export const esml = (
 ): { error?: Error; svg?: string; width?: number; height?: number } => {
   const style: Style = {
     scale,
-    stroke: "#DDDDDD",
+    stroke: "#dedede",
     fill: "white",
     font: FONTS[font.toLowerCase() as Font] || FONTS[DEFAULT_FONT],
     fontSize: 12,
-    strokeWidth: 1,
-    padding: 12,
+    padding: 30,
     margin: 40,
   };
 

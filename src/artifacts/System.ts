@@ -1,30 +1,18 @@
-import { Artifact, Grammar, Node } from "./types";
+import { Artifact } from "./types";
 
-export class System implements Artifact {
-  grammar() {
-    return {
-      handles: { visual: "command", owns: true },
-      emits: { visual: "event", owns: true },
-    } as Grammar;
-  }
-  edge(node: Node, ref: Node) {
-    return ref.visual === "command"
+export const System: Artifact = {
+  grammar: {
+    handles: { visual: "command", owns: true },
+    emits: { visual: "event", owns: true },
+  },
+  rel: (source, target) =>
+    target.visual === "command"
       ? {
-          start: ref.id,
-          end: node.id,
-          render: false,
-          dashed: false,
-          arrow: true,
+          sourceId: target.id,
+          targetId: source.id,
         }
       : {
-          start: node.id,
-          end: ref.id,
-          render: false,
-          dashed: false,
-          arrow: false,
-        };
-  }
-  ref() {
-    return undefined;
-  }
-}
+          sourceId: source.id,
+          targetId: target.id,
+        },
+};

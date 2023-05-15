@@ -1,8 +1,8 @@
 import {
+  COLORS,
   ContextNode,
   Edge,
   Node,
-  Ref,
   Style,
   Visual,
   isContextNode,
@@ -17,7 +17,11 @@ import {
   splitId,
 } from "../utils";
 import { SvgGraphics } from "./SvgGraphics";
-import { Graphics, Renderable } from "./types";
+import { Graphics, Renderable, SvgAttrs } from "./types";
+
+const CTX_STROKE = "#AAAAAA";
+const NOTE_STROKE = "#555555";
+const ARROW_SIZE = 0.5;
 
 const pickFontSize = (words: string[], w: number) => {
   const max = words
@@ -55,34 +59,33 @@ const sizeText = (
     fontSize--;
   }
   return {
-    lines: text,
+    lines: [text.join(" ")],
     fontSize,
   };
 };
 
-const NOTE_STROKE = "#555555";
 const renderText = (
-  node: Node,
   text: string[],
+  w: number,
+  h: number,
   g: Graphics,
-  style: Style,
   options: {
     fit: boolean;
     x?: number;
     y?: number;
-    width?: number;
-    height?: number;
+    w?: number;
+    h?: number;
     fontSize?: number;
   } = { fit: true }
 ) => {
-  const width = options.width || node.width || 0;
-  const height = options.height || node.height || 0;
+  const width = options.w || w || 0;
+  const height = options.h || h || 0;
 
   const { lines, fontSize } = options.fit
     ? sizeText(text, width, height)
     : {
         lines: text,
-        fontSize: options.fontSize || style.fontSize,
+        fontSize: options.fontSize || 12,
       };
 
   g.attr("font-size", fontSize + "pt");
@@ -98,7 +101,6 @@ const renderText = (
   });
 };
 
-const ARROW_SIZE = 0.5;
 const getPath = (edge: Edge, style: Style): Vector[] => {
   const path = edge.path!.slice(1, -1);
   const endDir = normalize(difference(path[path.length - 2], path.at(-1)!));
@@ -109,7 +111,10 @@ const getPath = (edge: Edge, style: Style): Vector[] => {
   return copy;
 };
 
-const renderArrow = (edge: Edge, g: Graphics, style: Style) => {
+const renderEdge = (edge: Edge, g: Graphics, style: Style) => {
+  const attrs: SvgAttrs = { fill: "none", stroke: edge.color };
+  const stroke_dash = edge.dashed && { "stroke-dasharray": `4 4` };
+  g.path(getPath(edge, style), false, { ...attrs, ...stroke_dash });
   if (edge.arrow) {
     const end = edge.path![edge.path!.length - 2];
     const path = edge.path!.slice(1, -1);
@@ -117,102 +122,149 @@ const renderArrow = (edge: Edge, g: Graphics, style: Style) => {
     const dir = normalize(difference(path[path.length - 2], path.at(-1)!));
     const x = (s: number) => add(end, multiply(dir, s * size));
     const y = (s: number) => multiply(rotate(dir), s * size);
-    g.path([add(x(10), y(4)), x(5), add(x(10), y(-4)), end], { close: true });
+    g.path([add(x(10), y(4)), x(5), add(x(10), y(-4)), end], true, {
+      ...attrs,
+      fill: edge.color,
+    });
   }
 };
 
-const renderEdge = (edge: Edge, g: Graphics, style: Style) => {
-  g.path(
-    getPath(edge, style),
-    (edge.dashed && { dash: Math.max(4, 2 * style.strokeWidth) }) || undefined
-  );
-  renderArrow(edge, g, style);
-};
-
-const renderRefs = (
-  context: ContextNode,
-  refs: Ref[],
-  g: Graphics,
-  style: Style
+const renderRef = (
+  target: Node,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  g: Graphics
 ) => {
-  const align = refs.length > 1 ? "left" : "center";
-  const text =
-    refs.length > 1
-      ? refs.map((r) => `- ${splitId(r.target.id).join(" ")}`)
-      : splitId(refs[0].target.id);
-
-  const { hostId, target } = refs[0];
-  const host = context.nodes.get(hostId);
-  if (!host) return;
-
-  const x = Math.floor(host.x! - host.width! / 2 - style.scale * 0.2);
-  const y = Math.floor(host.y! + host.height! * 0.4);
-  const w = Math.floor(style.scale);
-  const h = Math.floor(style.scale / 2);
-
-  g.group(`refs-${hostId}`)
-    .attr("fill", COLORS[target.visual])
-    .attr("stroke", NOTE_STROKE)
-    .attr("text-align", align)
-    .attr("text-anchor", align === "center" ? "middle" : "start");
-  const shadow = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
-  g.rect(x, y, w, h, { stroke: "none", style: shadow });
-  renderText(host, text, g, style, {
+  g.group("").attr("fill", COLORS[target.visual]);
+  g.rect(x, y, w, h);
+  renderText(splitId(target.id), w, h, g, {
     fit: true,
-    x: align === "center" ? x + w / 2 : x + style.scale * 0.05,
+    x: x + w / 2,
     y: y + h / 2,
-    width: w,
-    height: h,
+    w,
+    h,
   });
   g.ungroup();
 };
 
-const CTX_STROKE = "#AAAAAA";
-const context: Renderable = (node: Node, g: Graphics, style: Style) => {
-  if (isContextNode(node)) {
-    if (node.id) {
-      const words = splitId(node.id);
+const renderSimpleRef = (
+  ctx: ContextNode,
+  target: Node,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  g: Graphics
+) => {
+  renderRef(target, x, y, w, h, g);
+  const subRefs = [...ctx.refs.values()].filter(
+    (ref) => ref.sourceId === target.id
+  );
+  subRefs.forEach((sr, i) =>
+    renderRef(sr.target, x - w * 0.4, y + h * i - 4, w / 2, h / 2, g)
+  );
+};
+
+const renderMultiRef = (
+  targets: Node[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  g: Graphics
+) => {
+  const text = targets.map((target) => `- ${splitId(target.id).join(" ")}`);
+  g.group("")
+    .attr("fill", COLORS[targets[0].visual])
+    .attr("text-align", "left")
+    .attr("text-anchor", "start");
+  g.rect(x, y, w, h);
+  renderText(text, w, h, g, {
+    fit: true,
+    x: x + 4,
+    y: y + h / 2,
+    w,
+    h,
+  });
+  g.ungroup();
+};
+
+const renderCommandRefs = (
+  ctx: ContextNode,
+  targets: Node[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  g: Graphics
+) => {
+  const th = Math.floor(h / targets.length);
+  targets.forEach((target, i) =>
+    renderSimpleRef(ctx, target, x, y + i * (th + 2), w, th, g)
+  );
+};
+
+const renderRefs = (ctx: ContextNode, g: Graphics, style: Style) => {
+  const bySource = new Map<string, Node[]>();
+  ctx.refs.forEach((ref) => {
+    !bySource.has(ref.sourceId) && bySource.set(ref.sourceId, []);
+    bySource.get(ref.sourceId)?.push(ref.target);
+  });
+  bySource.forEach((targets, sourceId) => {
+    const source = ctx.nodes.get(sourceId)!;
+    if (source.visual !== "actor") {
+      const x = Math.floor(source.x! - source.width! / 2 - style.scale * 0.2);
+      const y = Math.floor(source.y! + source.height! * 0.4);
+      const w = Math.floor(style.scale);
+      const h = Math.floor(style.scale / 2);
+      targets.length > 1
+        ? source.visual === "command"
+          ? renderCommandRefs(ctx, targets, x, y, w, h, g)
+          : renderMultiRef(targets, x, y, w, h, g)
+        : renderSimpleRef(ctx, targets[0], x, y, w, h, g);
+    }
+  });
+};
+
+const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
+  if (isContextNode(ctx)) {
+    if (ctx.id) {
+      const words = splitId(ctx.id);
       g.text(words.join(" "), 0, 0, {
         fill: CTX_STROKE,
         stroke: CTX_STROKE,
         dy: -style.fontSize,
       });
-      g.rect(0, 0, node.width!, node.height!);
+      g.rect(0, 0, ctx.width!, ctx.height!, { rx: 25, ry: 25 });
     }
-    g.group("", style.padding, style.padding);
-    if (node.id) g.attr("text-align", "center").attr("text-anchor", "middle");
-    node.edges.forEach((e) => e.render && renderEdge(e, g, style));
-    node.nodes.forEach((n) => renderNode(n, g, style));
-    node.refs.forEach((r) => renderRefs(node, [...r.values()], g, style));
+    g.group("", { dx: style.padding, dy: style.padding });
+    if (ctx.id)
+      g.attr("text-align", "center")
+        .attr("text-anchor", "middle")
+        .attr("stroke", NOTE_STROKE)
+        .attr("stroke-width", 1);
+    ctx.edges.forEach((e) => e.color && renderEdge(e, g, style));
+    ctx.nodes.forEach((n) => n.visual !== "actor" && renderNode(n, g, style));
+    renderRefs(ctx, g, style);
     g.ungroup();
   }
 };
 
-const COLORS: { [key in Visual]: string } = {
-  context: "white",
-  actor: "#ffc107",
-  aggregate: "#fffabb",
-  system: "#eca0c3",
-  projector: "#d5f694",
-  policy: "#c595cd",
-  process: "#c595cd",
-  command: "#7adcfb",
-  event: "#ffaa61",
-};
 const note =
   (visual: Visual): Renderable =>
   (node: Node, g: Graphics, style: Style) => {
-    const shadow = "filter: drop-shadow(0px 5px 5px rgba(0, 0, 0, 0.5));";
-    g.attr("fill", COLORS[visual]).attr("stroke", NOTE_STROKE);
-    g.rect(0, 0, node.width!, node.height!, { stroke: "none", style: shadow });
-    renderText(node, splitId(node.id), g, style);
+    g.attr("fill", COLORS[visual]);
+    g.rect(0, 0, node.width!, node.height!);
+    renderText(splitId(node.id), node.width!, node.height!, g);
   };
 
 const renderNode = (node: Node, g: Graphics, style: Style) => {
   const dx = Math.floor(node.x! - node.width! / 2);
   const dy = Math.floor(node.y! - node.height! / 2);
   const render = node.visual === "context" ? context : note(node.visual);
-  g.group(node.id, dx, dy);
+  g.group(node.id, { class: node.visual, dx, dy });
   render(node, g, style);
   g.ungroup();
 };
@@ -224,7 +276,7 @@ export const render = (root: ContextNode, style: Style): string => {
     "font-size": style.fontSize + "pt",
     "text-align": "left",
     stroke: style.stroke,
-    "stroke-width": style.strokeWidth,
+    "stroke-width": 1.5,
   });
   context(root, g, style);
   return g.serialize();

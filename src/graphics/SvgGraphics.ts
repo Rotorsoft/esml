@@ -24,8 +24,8 @@ class SvgElement {
   constructor(
     private readonly type: SvgElementType,
     private readonly attrs: SvgAttrs,
-    private readonly parent?: SvgElement,
-    private readonly text?: string
+    private parent?: SvgElement,
+    private text?: string
   ) {}
   get group() {
     return this.parent;
@@ -35,8 +35,9 @@ class SvgElement {
     return this;
   }
   append(el: SvgElement) {
+    el.parent = this;
     this.children.push(el);
-    return this;
+    return el;
   }
   serialize(): string {
     const attr = attrs({ ...this.attrs });
@@ -61,12 +62,16 @@ export class SvgGraphics implements Graphics {
     });
   }
 
-  group(name: string, dx = 0, dy = 0) {
+  group(name: string, attrs?: { class?: string; dx?: number; dy?: number }) {
     const element = new SvgElement("g", {}, this.current);
     this.current.append(element);
     this.current = element;
     name && this.attr("data-name", name);
-    (dx || dy) && this.attr("transform", `translate(${dx}, ${dy})`);
+    if (attrs) {
+      attrs.class && this.attr("class", attrs.class);
+      (attrs.dx || attrs.dy) &&
+        this.attr("transform", `translate(${attrs.dx}, ${attrs.dy})`);
+    }
     return this;
   }
   ungroup() {
@@ -85,21 +90,18 @@ export class SvgGraphics implements Graphics {
       fill?: string;
       stroke?: string;
       style?: string;
+      rx?: number;
+      ry?: number;
     }
   ) {
     this._new("rect", { x, y, height, width, ...attrs });
   }
-  path(path: Vector[], attrs?: { dash?: number; close: boolean }) {
+  path(path: Vector[], close?: boolean, attrs?: SvgAttrs) {
     const d = path
       .map((e, i) => (i ? "L" : "M") + e.x.toFixed(0) + " " + e.y.toFixed(0))
-      .join(" ");
-    const _attrs: SvgAttrs = { d };
-    if (attrs) {
-      attrs.dash &&
-        (_attrs["stroke-dasharray"] = `${attrs.dash} ${attrs.dash}`);
-      attrs.close && (_attrs.d = d.concat(" Z"));
-    }
-    this._new("path", _attrs);
+      .join(" ")
+      .concat(close ? " Z" : "");
+    this._new("path", { ...attrs, d });
   }
   text(
     text: string,

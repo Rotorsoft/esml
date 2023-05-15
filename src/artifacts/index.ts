@@ -1,19 +1,17 @@
 import { Actor } from "./Actor";
-import { Aggregate } from "./Aggregate";
 import { Context } from "./Context";
 import { Policy } from "./Policy";
-import { Process } from "./Process";
 import { Projector } from "./Projector";
 import { System } from "./System";
-import { Artifacts } from "./types";
+import { ArtType, Artifact } from "./types";
 
-export const artifacts: Artifacts = {
-  actor: new Actor(),
-  aggregate: new Aggregate(),
-  context: new Context(),
-  policy: new Policy(),
-  process: new Process(),
-  projector: new Projector(),
-  system: new System(),
+export const artifacts: { [key in ArtType]: Artifact } = {
+  context: Context,
+  actor: Actor,
+  aggregate: System,
+  system: System,
+  policy: Policy,
+  process: Policy,
+  projector: Projector,
 };
 export * from "./types";

@@ -1,13 +1,34 @@
-import { Artifact, Grammar, Node } from "./types";
+import { Artifact, COLORS } from "./types";
 
-export class Context implements Artifact {
-  grammar() {
-    return { includes: { visual: "artifact", owns: true } } as Grammar;
-  }
-  edge(node: Node, ref: Node, dashed = false, arrow = true) {
-    return { start: node.id, end: ref.id, render: true, dashed, arrow };
-  }
-  ref() {
-    return undefined;
-  }
-}
+export const Context: Artifact = {
+  grammar: {
+    includes: { visual: "artifact", owns: true },
+  },
+  // resolves inter-context relationships
+  rel: (source, target) => {
+    if (target.visual === "event")
+      return {
+        sourceId: target.ctx!,
+        targetId: source.ctx!,
+        color: COLORS.event,
+        dashed: true,
+        arrow: true,
+      };
+
+    if (target.visual === "command" && source.visual !== "actor")
+      return {
+        sourceId: source.ctx!,
+        targetId: target.ctx!,
+        color: COLORS.command,
+        arrow: true,
+      };
+
+    if (target.visual === "projector")
+      return {
+        sourceId: source.ctx!,
+        targetId: target.ctx!,
+        color: COLORS.projector,
+        arrow: true,
+      };
+  },
+};

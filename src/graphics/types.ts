@@ -2,8 +2,11 @@ import { Style, Node } from "../artifacts";
 import { Vector } from "../utils";
 
 export type SvgElementType = "g" | "path" | "rect" | "text" | "tspan";
+
 export type SvgAttr = {
+  id?: string;
   "data-name"?: string;
+  class?: string;
   transform?: string;
   fill?: string;
   stroke?: string;
@@ -20,14 +23,20 @@ export type SvgAttr = {
   y?: number;
   dx?: number | string;
   dy?: number | string;
+  rx?: number;
+  ry?: number;
   height?: number;
   width?: number;
   style?: string;
 };
+
 export type SvgAttrs = { [K in keyof SvgAttr]?: SvgAttr[K] };
 
 export interface Graphics {
-  group(name: string, dx?: number, dy?: number): this;
+  group(
+    name: string,
+    attrs?: { class?: string; dx?: number; dy?: number }
+  ): this;
   ungroup(): void;
   attr<K extends keyof SvgAttr>(key: K, val: SvgAttrs[K]): this;
   text(
@@ -43,15 +52,17 @@ export interface Graphics {
   rect(
     x: number,
     y: number,
-    w: number,
-    h: number,
+    width: number,
+    height: number,
     attrs?: {
       fill?: string;
       stroke?: string;
       style?: string;
+      rx?: number;
+      ry?: number;
     }
   ): void;
-  path(path: Vector[], attrs?: { dash?: number; close?: boolean }): void;
+  path(path: Vector[], close?: boolean, attrs?: SvgAttrs): void;
   serialize(): string;
 }
 

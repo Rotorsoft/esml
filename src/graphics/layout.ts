@@ -18,11 +18,11 @@ const rectangle: Layouter = (node: Node, style: Style) => {
   node.height = style.scale;
 };
 
-const half_rectangle: Layouter = (node: Node, style: Style) => {
+const empty: Layouter = (node: Node) => {
   node.x = 0;
   node.y = 0;
-  node.width = style.scale;
-  node.height = style.scale / 2;
+  node.width = 0;
+  node.height = 0;
 };
 
 export const layout = (root: ContextNode, style: Style) => {
@@ -31,7 +31,7 @@ export const layout = (root: ContextNode, style: Style) => {
       case "context":
         return layoutContext as Layouter;
       case "actor":
-        return half_rectangle;
+        return empty;
       case "command":
       case "event":
         return square;
@@ -40,8 +40,8 @@ export const layout = (root: ContextNode, style: Style) => {
     }
   }
 
-  const layoutContext = (node: ContextNode, style: Style) => {
-    if (node.nodes.size) {
+  const layoutContext = (ctx: ContextNode, style: Style) => {
+    if (ctx.nodes.size) {
       const graph = new dagre.graphlib.Graph({
         multigraph: true,
       });
@@ -53,17 +53,17 @@ export const layout = (root: ContextNode, style: Style) => {
         rankdir: "LR",
         ranker: "network-simplex",
       });
-      node.nodes.forEach((n) => layouter(n.visual)(n, style));
-      node.nodes.forEach(({ id, width, height }) =>
+      ctx.nodes.forEach((n) => layouter(n.visual)(n, style));
+      ctx.nodes.forEach(({ id, width, height }) =>
         graph.setNode(id, { width, height })
       );
-      const edges = [...node.edges.values()].map((edge, index) => {
-        graph.setEdge(edge.start, edge.end, {}, `${index}`);
+      const edges = [...ctx.edges.values()].map((edge, index) => {
+        graph.setEdge(edge.sourceId, edge.targetId, {}, `${index}`);
         return edge;
       });
       dagre.layout(graph);
 
-      node.nodes.forEach((n) => {
+      ctx.nodes.forEach((n) => {
         const gn = graph.node(n.id);
         n!.x = gn.x;
         n!.y = gn.y;
@@ -73,8 +73,8 @@ export const layout = (root: ContextNode, style: Style) => {
       for (const e of graph.edges()) {
         const ge = graph.edge(e);
         const ne = edges[parseInt(e.name!)];
-        const start = node.nodes.get(e.v);
-        const end = node.nodes.get(e.w);
+        const start = ctx.nodes.get(e.v);
+        const end = ctx.nodes.get(e.w);
         ne!.path = [start!, ...ge.points!, end!].map((n) => ({
           x: n.x!,
           y: n.y!,
@@ -87,12 +87,12 @@ export const layout = (root: ContextNode, style: Style) => {
         }); //left,right,top,bottom
       }
       const { width = 0, height = 0 } = graph.graph();
-      node.width = Math.max(width, r[1] - r[0]) + 2 * style.padding;
-      node.height = Math.max(height, r[3] - r[2]) + 2 * style.padding;
+      ctx.width = Math.max(width, r[1] - r[0]) + 2 * style.padding;
+      ctx.height = Math.max(height, r[3] - r[2]) + 2 * style.padding;
     } else {
-      node.width =
-        style.padding * 2 + splitId(node.id).join(" ").length * style.fontSize;
-      node.height = style.padding * 3 + style.fontSize;
+      ctx.width =
+        style.padding * 2 + splitId(ctx.id).join(" ").length * style.fontSize;
+      ctx.height = style.padding * 3 + style.fontSize;
     }
   };
 

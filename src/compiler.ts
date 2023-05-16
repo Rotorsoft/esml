@@ -1,4 +1,6 @@
 import {
+  ArtType,
+  COLORS,
   ContextNode,
   Edge,
   Node,
@@ -28,15 +30,19 @@ const error = (
   throw new CompilerError(statement.source, expected, actual);
 };
 
-const newContext = (id = ""): ContextNode => ({
+const newContext = (id = "", hidden = false): ContextNode => ({
   id,
   visual: "context",
+  ctx: "root",
+  color: hidden ? undefined : COLORS.context,
   nodes: new Map(),
   edges: new Map(),
   refs: new Map(),
   x: 0,
   y: 0,
 });
+
+const ROOT_ARTS: Array<ArtType> = ["context", "actor"];
 
 export const compile = (statements: Map<string, Statement>): ContextNode => {
   const nodes = new Map<string, Node>();
@@ -50,11 +56,11 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     const found = nodes.get(id);
     if (found) {
       if (found.visual !== visual)
-        error(statement, `${id} as ${found.visual}`, visual);
+        error(statement, `${id} found as ${found.visual}`, visual);
       !found.ctx && owns && (found.ctx = statement.context);
       return found;
     }
-    const node: Node = { id, visual };
+    const node: Node = { id, visual, color: COLORS[visual] };
     owns && (node.ctx = statement.context);
     nodes.set(id, node);
     return node;
@@ -62,15 +68,15 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
 
   const addNode = (ctx: ContextNode, id: string): void => {
     const statement = statements.get(id);
-    if (statement && statement.type !== "context" && !statement.context) {
+    if (statement && !statement.context) {
       statement.context = ctx.id;
       const node = newNode(statement, id, statement.type, true);
       statement.rels.forEach(({ visual, owns }, id) => {
-        const ref = statements.get(id);
-        ref?.type === "context" && error(statement, "component", id); // nested context
-        if (visual === "artifact")
-          error(statement, "valid relationship", visual);
-        else newNode(statement, id, visual, owns);
+        const rel = statements.get(id);
+        rel && ROOT_ARTS.includes(rel.type) && error(statement, "artifact", id); // don't rel root arts
+        visual === "artifact" &&
+          error(statement, "artifact type", "nested context");
+        newNode(statement, id, visual as Visual, owns);
       });
       ctx.nodes.set(id, node);
     } else {
@@ -83,10 +89,16 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     }
   };
 
+  // group actors and contexts in root
   const root = newContext();
+  const actors = newContext("actors", true);
+  root.nodes.set(actors.id, actors);
   statements.forEach((statement, id) => {
-    if (statement.type === "context") {
+    if (statement.type === "actor") addNode(actors, id);
+    else if (statement.type === "context") {
       const ctx = newContext(id);
+      ctx.actors = actors;
+      statement.context = ctx.ctx;
       statement.rels.forEach((_, id) => addNode(ctx, id));
       root.nodes.set(id, ctx);
     }
@@ -94,11 +106,9 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
 
   // orphans in global context
   const global = newContext("global");
-  statements.forEach((statement, id) => {
-    if (statement.type !== "context" && !statement.context) {
-      addNode(global, id);
-    }
-  });
+  statements.forEach(
+    (statement, id) => !statement.context && addNode(global, id)
+  );
   nodes.forEach((node) => {
     if (!node.ctx) {
       node.ctx = global.id;
@@ -107,10 +117,29 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
   });
   global.nodes.size && root.nodes.set(global.id, global);
 
+  //************/
   // debug!
+  //************/
   // [...nodes.values()]
   //   .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   //   .forEach((n) => console.log(n));
+
+  // console.log(
+  //   [...statements.entries()].map(
+  //     ([id, s]) =>
+  //       `[${pad(s.source.from.line, 3)}:${pad(s.source.from.col, 3)} - ${pad(
+  //         s.source.to.line,
+  //         3
+  //       )}:${pad(s.source.to.col, 3)}] ${s.type} ${id} => ${[
+  //         ...s.rels.entries(),
+  //       ]
+  //         .map(([k, { visual }]) => `${visual} ${k}`)
+  //         .join(",")}`
+  //   )
+  // );
+
+  // console.log(actors);
+  //************/
 
   // connect the model!
   statements.forEach((statement, id) => {
@@ -119,12 +148,11 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
       const source = nodes.get(id)!;
       const ctx = root.nodes.get(source.ctx!)! as ContextNode;
 
-      statement.rels.forEach(({ visual }, id) => {
+      statement.rels.forEach((_, id) => {
         const target = nodes.get(id)!;
-        const rel_ctx = root.nodes.get(target.ctx!)! as ContextNode;
 
         // connect contexts
-        if (source.ctx !== target.ctx) {
+        if (ctx.color && source.ctx !== target.ctx) {
           const edge = artifacts.context.rel(source, target) as Edge;
           if (edge) {
             const key = `${edge.sourceId}->${edge.targetId}-${
@@ -144,9 +172,10 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
               ctx.nodes.set(rel.sourceId, { ...target, id: rel.sourceId });
             else ctx.nodes.set(rel.targetId, target);
           } else {
-            // set ref in source context when target is a projector (in another ctx)
-            const _ctx = visual === "projector" ? ctx : rel_ctx;
-            _ctx.refs.set(`${rel.sourceId}->${rel.target.id}`, rel);
+            const src_ctx = root.nodes.get(rel.source.ctx!)! as ContextNode;
+            !src_ctx.refs.has(rel.source.id) &&
+              src_ctx.refs.set(rel.source.id, new Set());
+            src_ctx.refs.get(rel.source.id)?.add(rel.target);
           }
         }
       });

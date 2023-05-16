@@ -18,20 +18,11 @@ const rectangle: Layouter = (node: Node, style: Style) => {
   node.height = style.scale;
 };
 
-const empty: Layouter = (node: Node) => {
-  node.x = 0;
-  node.y = 0;
-  node.width = 0;
-  node.height = 0;
-};
-
 export const layout = (root: ContextNode, style: Style) => {
   function layouter(visual: Visual): Layouter {
     switch (visual) {
       case "context":
         return layoutContext as Layouter;
-      case "actor":
-        return empty;
       case "command":
       case "event":
         return square;
@@ -53,9 +44,10 @@ export const layout = (root: ContextNode, style: Style) => {
         rankdir: "LR",
         ranker: "network-simplex",
       });
-      ctx.nodes.forEach((n) => layouter(n.visual)(n, style));
-      ctx.nodes.forEach(({ id, width, height }) =>
-        graph.setNode(id, { width, height })
+      ctx.nodes.forEach((n) => n.color && layouter(n.visual)(n, style));
+      ctx.nodes.forEach(
+        ({ id, width, height }) =>
+          width && height && graph.setNode(id, { width, height })
       );
       const edges = [...ctx.edges.values()].map((edge, index) => {
         graph.setEdge(edge.sourceId, edge.targetId, {}, `${index}`);
@@ -65,8 +57,10 @@ export const layout = (root: ContextNode, style: Style) => {
 
       ctx.nodes.forEach((n) => {
         const gn = graph.node(n.id);
-        n!.x = gn.x;
-        n!.y = gn.y;
+        if (gn) {
+          n!.x = gn.x;
+          n!.y = gn.y;
+        }
       });
 
       const r = [0, 0, 0, 0];

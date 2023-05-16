@@ -7,14 +7,6 @@ export const Actor: Artifact = {
   },
   rel: (source, target) =>
     target.visual === "command"
-      ? {
-          // sourceId: source.id,
-          // targetId: target.id,
-          // color: COLORS.command,
-          // arrow: true,
-
-          sourceId: target.id,
-          target: source,
-        }
-      : { sourceId: source.id, target },
+      ? { source: target, target: source }
+      : { source, target },
 };

@@ -47,6 +47,7 @@ export type Node = {
   id: string;
   visual: Visual;
   ctx?: string;
+  color?: string;
   x?: number;
   y?: number;
   width?: number;
@@ -67,7 +68,7 @@ export type Edge = {
 };
 
 export type Ref = {
-  sourceId: string;
+  source: Node;
   target: Node;
 };
 
@@ -75,7 +76,8 @@ export type ContextNode = Node & {
   visual: "context";
   nodes: Map<string, Node>;
   edges: Map<string, Edge>;
-  refs: Map<string, Ref>;
+  refs: Map<string, Set<Node>>;
+  actors?: ContextNode;
 };
 
 export const isContextNode = (node: Node): node is ContextNode =>

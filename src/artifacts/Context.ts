@@ -15,7 +15,7 @@ export const Context: Artifact = {
         arrow: true,
       };
 
-    if (target.visual === "command" && source.visual !== "actor")
+    if (target.visual === "command")
       return {
         sourceId: source.ctx!,
         targetId: target.ctx!,

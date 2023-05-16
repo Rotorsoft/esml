@@ -29,15 +29,6 @@ export const esml = (
 
   try {
     const statements = parse(code);
-    // console.log(
-    //   [...statements.entries()].map(
-    //     ([id, s]) =>
-    //       `[${pad(s.source.from.line, 3)}:${pad(s.source.from.col, 3)} - ${pad(
-    //         s.source.to.line,
-    //         3
-    //       )}:${pad(s.source.to.col, 3)}] ${s.type} ${id} ${s.rels.size} rels`
-    //   )
-    // );
     const root = compile(statements);
     layout(root, style);
     const svg = render(root, style);

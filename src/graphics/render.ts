@@ -1,12 +1,4 @@
-import {
-  COLORS,
-  ContextNode,
-  Edge,
-  Node,
-  Style,
-  Visual,
-  isContextNode,
-} from "../artifacts";
+import { ContextNode, Edge, Node, Style, isContextNode } from "../artifacts";
 import {
   Vector,
   add,
@@ -129,7 +121,7 @@ const renderEdge = (edge: Edge, g: Graphics, style: Style) => {
   }
 };
 
-const renderRef = (
+const renderSimpleRef = (
   target: Node,
   x: number,
   y: number,
@@ -137,7 +129,7 @@ const renderRef = (
   h: number,
   g: Graphics
 ) => {
-  g.group("").attr("fill", COLORS[target.visual]);
+  g.group("").attr("fill", target.color);
   g.rect(x, y, w, h);
   renderText(splitId(target.id), w, h, g, {
     fit: true,
@@ -149,7 +141,7 @@ const renderRef = (
   g.ungroup();
 };
 
-const renderSimpleRef = (
+const renderRef = (
   ctx: ContextNode,
   target: Node,
   x: number,
@@ -158,16 +150,17 @@ const renderSimpleRef = (
   h: number,
   g: Graphics
 ) => {
-  renderRef(target, x, y, w, h, g);
-  const subRefs = [...ctx.refs.values()].filter(
-    (ref) => ref.sourceId === target.id
-  );
-  subRefs.forEach((sr, i) =>
-    renderRef(sr.target, x - w * 0.4, y + h * i - 4, w / 2, h / 2, g)
-  );
+  renderSimpleRef(target, x, y, w, h, g);
+  const actorRefs = ctx.actors?.refs.get(target.id);
+  const hw = Math.ceil(w / 2);
+  const hh = Math.ceil(h / 2);
+  actorRefs &&
+    [...actorRefs].forEach((target, i) =>
+      renderSimpleRef(target, x - hw + 4, y + i * (hh + 2) - 4, hw, hh, g)
+    );
 };
 
-const renderMultiRef = (
+const renderMultilineRef = (
   targets: Node[],
   x: number,
   y: number,
@@ -177,7 +170,7 @@ const renderMultiRef = (
 ) => {
   const text = targets.map((target) => `- ${splitId(target.id).join(" ")}`);
   g.group("")
-    .attr("fill", COLORS[targets[0].visual])
+    .attr("fill", targets[0].color)
     .attr("text-align", "left")
     .attr("text-anchor", "start");
   g.rect(x, y, w, h);
@@ -202,29 +195,22 @@ const renderCommandRefs = (
 ) => {
   const th = Math.floor(h / targets.length);
   targets.forEach((target, i) =>
-    renderSimpleRef(ctx, target, x, y + i * (th + 2), w, th, g)
+    renderRef(ctx, target, x, y + i * (th + 2), w, th, g)
   );
 };
 
 const renderRefs = (ctx: ContextNode, g: Graphics, style: Style) => {
-  const bySource = new Map<string, Node[]>();
-  ctx.refs.forEach((ref) => {
-    !bySource.has(ref.sourceId) && bySource.set(ref.sourceId, []);
-    bySource.get(ref.sourceId)?.push(ref.target);
-  });
-  bySource.forEach((targets, sourceId) => {
+  ctx.refs.forEach((targets, sourceId) => {
     const source = ctx.nodes.get(sourceId)!;
-    if (source.visual !== "actor") {
-      const x = Math.floor(source.x! - source.width! / 2 - style.scale * 0.2);
-      const y = Math.floor(source.y! + source.height! * 0.4);
-      const w = Math.floor(style.scale);
-      const h = Math.floor(style.scale / 2);
-      targets.length > 1
-        ? source.visual === "command"
-          ? renderCommandRefs(ctx, targets, x, y, w, h, g)
-          : renderMultiRef(targets, x, y, w, h, g)
-        : renderSimpleRef(ctx, targets[0], x, y, w, h, g);
-    }
+    const x = Math.floor(source.x! - source.width! / 2 - style.scale * 0.2);
+    const y = Math.floor(source.y! + source.height! * 0.4);
+    const w = Math.floor(style.scale);
+    const h = Math.floor(style.scale / 2);
+    targets.size > 1
+      ? source.visual === "command"
+        ? renderCommandRefs(ctx, [...targets], x, y, w, h, g)
+        : renderMultilineRef([...targets], x, y, w, h, g)
+      : renderRef(ctx, [...targets][0], x, y, w, h, g);
   });
 };
 
@@ -246,24 +232,22 @@ const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
         .attr("stroke", NOTE_STROKE)
         .attr("stroke-width", 1);
     ctx.edges.forEach((e) => e.color && renderEdge(e, g, style));
-    ctx.nodes.forEach((n) => n.visual !== "actor" && renderNode(n, g, style));
+    ctx.nodes.forEach((n) => n.color && renderNode(n, g, style));
     renderRefs(ctx, g, style);
     g.ungroup();
   }
 };
 
-const note =
-  (visual: Visual): Renderable =>
-  (node: Node, g: Graphics, style: Style) => {
-    g.attr("fill", COLORS[visual]);
-    g.rect(0, 0, node.width!, node.height!);
-    renderText(splitId(node.id), node.width!, node.height!, g);
-  };
+const note: Renderable = (node: Node, g: Graphics) => {
+  g.attr("fill", node.color!);
+  g.rect(0, 0, node.width!, node.height!);
+  renderText(splitId(node.id), node.width!, node.height!, g);
+};
 
 const renderNode = (node: Node, g: Graphics, style: Style) => {
   const dx = Math.floor(node.x! - node.width! / 2);
   const dy = Math.floor(node.y! - node.height! / 2);
-  const render = node.visual === "context" ? context : note(node.visual);
+  const render = node.visual === "context" ? context : note;
   g.group(node.id, { class: node.visual, dx, dy });
   render(node, g, style);
   g.ungroup();

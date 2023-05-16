@@ -16,7 +16,7 @@ export const Policy: Artifact = {
           arrow: true,
         }
       : target.visual === "projector"
-      ? { sourceId: source.id, target }
+      ? { source, target }
       : source.ctx === target.ctx
       ? {
           sourceId: source.id,
@@ -24,5 +24,5 @@ export const Policy: Artifact = {
           color: COLORS.command,
           arrow: true,
         }
-      : { sourceId: target.id, target: source },
+      : { source: target, target: source },
 };

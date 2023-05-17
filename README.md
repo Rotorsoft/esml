@@ -4,18 +4,35 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 
 ## Grammar
 
-- `comment` ::= "#" [^\\n]\* "\\n"
-- `name` ::= [a-zA-Z] [a-zA-Z0-9]\*
-- `names` ::= `name` {"," `name`}\*
-- `actor` ::= "actor" `name` { ["invokes" `names`] | ["reads" `names`] }\*
-- `aggregate` ::= "aggregate" `name` { ["handles" `names`] | ["emits" `names`] }\*
-- `system` ::= "system" `name` { ["handles" `names`] | ["emits" `names`] }\*
-- `policy` ::= "policy" `name` { ["handles" `names`] | ["invokes" `names`] | ["reads" `names`] }\*
-- `process` ::= "process" `name` { ["handles" `names`] | ["invokes" `names`] | ["reads" `names`] }\*
-- `projector` ::= "projector" `name` ["handles" `names`]\*
-- `context` ::= "context" `name` ["includes" `names`]\*
-- `statement` ::= `actor` | `aggregate` | `system` | `policy` | `process` | `projector` | `context`
-- `esml` ::= { `comment` | `statement` }\*
+- <comment\> ::= "#" [^\\n]\* "\\n"
+- <verb\> ::= [A-Z] [a-zA-Z]+
+- <past_tense_verb\> ::= [A-Z] [a-zA-Z]+ ["ed"]?
+- <noun\> ::= [A-Z] [a-zA-Z]+
+- <adjective\> ::= [A-Z] [a-zA-Z]+
+- <phrase\> ::= [<adjective\>] <noun\>
+- <context\> ::= <phrase\> {<phrase\>}
+- <command\> ::= <verb\> <noun\>
+- <event\> ::= <noun\> <past_tense_verb\>
+- <actor\> ::= <noun\>
+- <system\> ::= <noun\>
+- <aggregate\> ::= <noun\>
+- <projector\> ::= <noun\>
+- <policy\> ::= <verb\> <phrase\>
+- <process\> ::= <policy\>
+- <artifact\> ::= <aggregate\> | <system\> | <policy\> | <process\> | <projector\>
+- <commands\> ::= <command\> {"," <command\>}
+- <events\> ::= <event\> {"," <event\>}
+- <projectors\> ::= <projector\> {"," <projector\>}
+- <artifacts\> ::= <artifact\> {"," <artifact\>}
+- <actor_stmt\> ::= "actor" <actor\> { "invokes" <commands\> | "reads" <projectors\> }
+- <aggregate_stmt\> ::= "aggregate" <aggregate\> { "handles" <commands\> | "emits" <events\> }
+- <system_stmt\> ::= "system" <system\> { "handles" <commands\> | "emits" <events\> }
+- <policy_stmt\> ::= "policy" <policy\> { "handles" <events\> | "invokes" <commands\> | "reads" <projectors\> }
+- <process_stmt\> ::= "process" <process\> { "handles" <events\> | "invokes" <commands\> | "reads" \<projectors\> }
+- <projector_stmt\> ::= "projector" <projector\> { "handles" <events\> }
+- <context_stmt\> ::= "context" <context\> { "includes" <artifacts\> }
+- <statement\> ::= <actor_stmt\> | <aggregate_stmt\> | <system_stmt\> | <policy_stmt\> | <process_stmt\> | <projector_stmt\> | <context_stmt\>
+- <esml\> ::= { <comment\> | <statement\> }
 
 ## API
 

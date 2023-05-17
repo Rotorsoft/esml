@@ -31,22 +31,6 @@ type Pos = {
   line_ix: number;
 };
 
-/**
- * Grammar
- *
- * - `comment` ::= "#" [^\\n]* "\\n"
- * - `name` ::= [a-zA-Z] [a-zA-Z0-9]*
- * - `names` ::= `name` {"," `name`}*
- * - `actor` ::= "actor" `name` { ["invokes" `names`] | ["reads" `names`] }*
- * - `aggregate` ::= "aggregate" `name` { ["handles" `names`] | ["emits" `names`] }*
- * - `system` ::= "system" `name` { ["handles" `names`] | ["emits" `names`] }*
- * - `policy` ::= "policy" `name` { ["handles" `names`] | ["invokes" `names`] | ["reads" `names`] }*
- * - `process` ::= "process" `name` { ["handles" `names`] | ["invokes" `names`] | ["reads" `names`] }*
- * - `projector` ::= "projector" `name` ["handles" `names`]*
- * - `context` ::= "context" `name` ["includes" `names`]*
- * - `statement` ::= `actor` | `aggregate` | `system` | `policy` | `process` | `projector` | `context`
- * - `esml` ::= { `comment` | `statement` }*
- */
 export const parse = (code: string): Map<string, Statement> => {
   const statements: Map<string, Statement> = new Map();
   const pos: Pos = { ix: 0, line: 0, line_ix: 0 };

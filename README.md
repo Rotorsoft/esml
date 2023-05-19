@@ -2,11 +2,11 @@
 
 ESML, which stands for `Event Storming Modeling Language`, aims to create a user-friendly grammar that accurately describes the components of Event Storming Models with a level of detail that enables precise rendering of diagrams.
 
-## Grammar
+## ESML BNF Grammar
 
-- <comment\> ::= "#" [^\\n]\* "\\n"
+- <comment\> ::= "#" [^\\n]\* "\n"
 - <verb\> ::= [A-Z] [a-zA-Z]+
-- <past_tense_verb\> ::= [A-Z] [a-zA-Z]+ ["ed"]?
+- <past_tense_verb\> ::= <verb\> ["ed"]
 - <noun\> ::= [A-Z] [a-zA-Z]+
 - <adjective\> ::= [A-Z] [a-zA-Z]+
 - <phrase\> ::= [<adjective\>] <noun\>
@@ -24,15 +24,40 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 - <events\> ::= <event\> {"," <event\>}
 - <projectors\> ::= <projector\> {"," <projector\>}
 - <artifacts\> ::= <artifact\> {"," <artifact\>}
-- <actor_stmt\> ::= "actor" <actor\> { "invokes" <commands\> | "reads" <projectors\> }
-- <aggregate_stmt\> ::= "aggregate" <aggregate\> { "handles" <commands\> | "emits" <events\> }
-- <system_stmt\> ::= "system" <system\> { "handles" <commands\> | "emits" <events\> }
-- <policy_stmt\> ::= "policy" <policy\> { "handles" <events\> | "invokes" <commands\> | "reads" <projectors\> }
-- <process_stmt\> ::= "process" <process\> { "handles" <events\> | "invokes" <commands\> | "reads" \<projectors\> }
+- <actor_stmt\> ::= "actor" <actor\> { ("invokes" <commands\>) | ("reads" <projectors\>) }
+- <aggregate_stmt\> ::= "aggregate" <aggregate\> { ("handles" <commands\>) | ("emits" <events\>) }
+- <system_stmt\> ::= "system" <system\> { ("handles" <commands\>) | ("emits" <events\>) }
+- <policy_stmt\> ::= "policy" <policy\> { ("handles" <events\>) | ("invokes" <commands\>) | ("reads" <projectors\>) }
+- <process_stmt\> ::= "process" <process\> { ("handles" <events\>) | ("invokes" <commands\>) | ("reads" <projectors\>) }
 - <projector_stmt\> ::= "projector" <projector\> { "handles" <events\> }
 - <context_stmt\> ::= "context" <context\> { "includes" <artifacts\> }
 - <statement\> ::= <actor_stmt\> | <aggregate_stmt\> | <system_stmt\> | <policy_stmt\> | <process_stmt\> | <projector_stmt\> | <context_stmt\>
 - <esml\> ::= { <comment\> | <statement\> }
+
+## Instructions
+
+1. Start by specifying the system or domain you want to model (e.g., banking system, e-commerce platform, healthcare system).
+2. Identify the key entities or aggregates in the system. For each aggregate:
+   - Specify the commands it can handle (e.g., CreateAccount, PlaceOrder).
+   - Specify the events it can emit (e.g., AccountCreated, OrderPlaced).
+3. Define the actors or users interacting with the system. For each actor:
+   - Specify the commands they can invoke (e.g., RegisterCustomer, MakePayment).
+   - Specify the projectors they can read for retrieving information (e.g., ViewAccountBalance, ViewOrderStatus).
+4. Determine the contexts in the system. A context is a grouping of related aggregates, actors, and policies. Specify the artifacts included in each context.
+5. Define the policies that govern the behavior of the system. For each policy:
+   - Specify the events it can handle (e.g., HandleOrderCancelled, HandlePaymentReceived).
+   - Specify the commands it can invoke (e.g., ProcessOrder, RefundPayment).
+   - Specify the projectors it can read for retrieving information (e.g., ReadProductCatalog, ReadCustomerProfile).
+6. Establish the associations between actors and artifacts:
+   - Specify the commands actors can invoke on aggregates.
+   - Specify the projectors actors can read to make decisions or retrieve information.
+7. Arrange the statements in the ESML model, following the grammar provided, ensuring proper indentation and readability.
+8. Optionally, include comments using the "#" symbol to provide additional explanations or context.
+9. Save the generated ESML model as a text file or document for sharing and future reference.
+10. Don't use parenthesis or keywords not defined in the grammar.
+11. In ESML, associations are implicit, don't create association statements.
+12. Make sure you include projector statements.
+13. In ESML, projectors handle events, not aggregates.
 
 ## API
 

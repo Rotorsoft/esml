@@ -13,7 +13,7 @@ export const Policy: Artifact = {
           targetId: source.id,
           color: COLORS.event,
           dashed: true,
-          arrow: true,
+          arrow: false,
         }
       : target.visual === "projector"
       ? { source, target }
@@ -22,7 +22,7 @@ export const Policy: Artifact = {
           sourceId: source.id,
           targetId: target.id,
           color: COLORS.command,
-          arrow: true,
+          arrow: false,
         }
       : { source: target, target: source },
 };

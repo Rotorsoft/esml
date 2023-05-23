@@ -40,7 +40,7 @@ export const layout = (root: ContextNode, style: Style) => {
         nodesep: style.margin,
         edgesep: style.margin,
         ranksep: style.margin,
-        acyclicer: "greedy",
+        acyclicer: ctx.id && "greedy",
         rankdir: "LR",
         ranker: "network-simplex",
       });
@@ -69,9 +69,9 @@ export const layout = (root: ContextNode, style: Style) => {
         const ne = edges[parseInt(e.name!)];
         const start = ctx.nodes.get(e.v);
         const end = ctx.nodes.get(e.w);
-        ne!.path = [start!, ...ge.points!, end!].map((n) => ({
-          x: n.x!,
-          y: n.y!,
+        ne.path = [start!, ...ge.points!, end!].map((n) => ({
+          x: Math.floor(n.x!),
+          y: Math.floor(n.y!),
         }));
         ge.points!.forEach(({ x, y }) => {
           r[0] = r[0] < x ? r[0] : x;

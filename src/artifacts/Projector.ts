@@ -7,6 +7,6 @@ export const Projector: Artifact = {
     targetId: source.id,
     color: COLORS.event,
     dashed: true,
-    arrow: true,
+    arrow: false,
   }),
 };

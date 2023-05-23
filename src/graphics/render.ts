@@ -13,7 +13,7 @@ import { Graphics, Renderable, SvgAttrs } from "./types";
 
 const CTX_STROKE = "#AAAAAA";
 const NOTE_STROKE = "#555555";
-const ARROW_SIZE = 0.5;
+const ARROW_SIZE = 1;
 
 const pickFontSize = (words: string[], w: number) => {
   const max = words
@@ -96,24 +96,28 @@ const renderText = (
 const getPath = (edge: Edge, style: Style): Vector[] => {
   const path = edge.path!.slice(1, -1);
   const endDir = normalize(difference(path[path.length - 2], path.at(-1)!));
-  const size = (style.margin * ARROW_SIZE) / 30;
   const end = path.length - 1;
   const copy = path.map((p) => ({ x: p.x, y: p.y }));
-  copy[end] = add(copy[end], multiply(endDir, size * (edge.arrow ? 5 : 0)));
+  copy[end] = add(
+    copy[end],
+    multiply(endDir, ARROW_SIZE * (edge.arrow ? 5 : 0))
+  );
   return copy;
 };
 
 const renderEdge = (edge: Edge, g: Graphics, style: Style) => {
   const attrs: SvgAttrs = { fill: "none", stroke: edge.color };
-  const stroke_dash = edge.dashed && { "stroke-dasharray": `4 4` };
-  g.path(getPath(edge, style), false, { ...attrs, ...stroke_dash });
+  edge.arrow && (attrs["stroke-width"] = 2);
+  const dash: SvgAttrs = edge.dashed
+    ? { "stroke-dasharray": edge.arrow ? "8 8" : "4 4" }
+    : {};
+  g.path(getPath(edge, style), false, { ...attrs, ...dash });
   if (edge.arrow) {
     const end = edge.path![edge.path!.length - 2];
     const path = edge.path!.slice(1, -1);
-    const size = (style.margin * ARROW_SIZE) / 30;
     const dir = normalize(difference(path[path.length - 2], path.at(-1)!));
-    const x = (s: number) => add(end, multiply(dir, s * size));
-    const y = (s: number) => multiply(rotate(dir), s * size);
+    const x = (s: number) => add(end, multiply(dir, s * ARROW_SIZE));
+    const y = (s: number) => multiply(rotate(dir), s * ARROW_SIZE);
     g.path([add(x(10), y(4)), x(5), add(x(10), y(-4)), end], true, {
       ...attrs,
       fill: edge.color,
@@ -229,8 +233,7 @@ const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
     if (ctx.id)
       g.attr("text-align", "center")
         .attr("text-anchor", "middle")
-        .attr("stroke", NOTE_STROKE)
-        .attr("stroke-width", 1);
+        .attr("stroke", NOTE_STROKE);
     ctx.edges.forEach((e) => e.color && renderEdge(e, g, style));
     ctx.nodes.forEach((n) => n.color && renderNode(n, g, style));
     renderRefs(ctx, g, style);
@@ -260,7 +263,7 @@ export const render = (root: ContextNode, style: Style): string => {
     "font-size": style.fontSize + "pt",
     "text-align": "left",
     stroke: style.stroke,
-    "stroke-width": 1.5,
+    "stroke-width": 1,
   });
   context(root, g, style);
   return g.serialize();

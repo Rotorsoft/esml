@@ -1,5 +1,4 @@
-import { Vector } from "../utils";
-import { Graphics, SvgAttr, SvgAttrs, SvgElementType } from "./types";
+import { Graphics, Path, SvgAttr, SvgAttrs, SvgElementType } from "./types";
 
 function encode(val?: string | number) {
   if ("number" === typeof val) return val.toFixed(0);
@@ -96,9 +95,17 @@ export class SvgGraphics implements Graphics {
   ) {
     this._new("rect", { x, y, height, width, ...attrs });
   }
-  path(path: Vector[], close?: boolean, attrs?: SvgAttrs) {
+  path(path: Path[], close?: boolean, attrs?: SvgAttrs) {
     const d = path
-      .map((e, i) => (i ? "L" : "M") + e.x.toFixed(0) + " " + e.y.toFixed(0))
+      .map((p, i) =>
+        p.x && p.y
+          ? (i ? "L" : "M") + p.x.toFixed(0) + " " + p.y.toFixed(0)
+          : p.dx
+          ? "h" + p.dx.toFixed(0)
+          : p.dy
+          ? "v" + p.dy.toFixed(0)
+          : ""
+      )
       .join(" ")
       .concat(close ? " Z" : "");
     this._new("path", { ...attrs, d });

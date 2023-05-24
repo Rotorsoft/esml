@@ -153,9 +153,9 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
 
         // connect contexts
         if (ctx.color && source.ctx !== target.ctx) {
-          const edge = artifacts.context.rel(source, target) as Edge;
+          const edge = artifacts.context.rel(source, target, root) as Edge;
           if (edge) {
-            const key = `${edge.sourceId}->${edge.targetId}-${
+            const key = `${edge.source.id}->${edge.target.id}-${
               edge.color || ""
             }`;
             !root.edges.has(key) && root.edges.set(key, edge);
@@ -163,14 +163,12 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
         }
 
         // connect visuals in context
-        const rel = artifact.rel(source, target);
+        const rel = artifact.rel(source, target, root);
         if (rel) {
-          if ("targetId" in rel) {
-            ctx.edges.set(`${rel.sourceId}->${rel.targetId}`, rel);
-            if (rel.targetId === source.id)
-              // clone target as source (event -> policy)
-              ctx.nodes.set(rel.sourceId, { ...target, id: rel.sourceId });
-            else ctx.nodes.set(rel.targetId, target);
+          if (rel.edge) {
+            ctx.edges.set(`${rel.source.id}->${rel.target.id}`, rel);
+            ctx.nodes.set(rel.source.id, rel.source);
+            ctx.nodes.set(rel.target.id, rel.target);
           } else {
             const src_ctx = root.nodes.get(rel.source.ctx!)! as ContextNode;
             !src_ctx.refs.has(rel.source.id) &&

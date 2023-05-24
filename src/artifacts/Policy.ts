@@ -9,18 +9,19 @@ export const Policy: Artifact = {
   rel: (source, target) =>
     target.visual === "event"
       ? {
-          sourceId: target.id + "*",
-          targetId: source.id,
+          source: { ...target, id: target.id + "*" }, // copy target event into context
+          target: source,
+          edge: true,
           color: COLORS.event,
-          dashed: true,
           arrow: false,
         }
       : target.visual === "projector"
       ? { source, target }
       : source.ctx === target.ctx
       ? {
-          sourceId: source.id,
-          targetId: target.id,
+          source,
+          target,
+          edge: true,
           color: COLORS.command,
           arrow: false,
         }

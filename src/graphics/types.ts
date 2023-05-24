@@ -1,5 +1,4 @@
 import { Style, Node } from "../artifacts";
-import { Vector } from "../utils";
 
 export type SvgElementType = "g" | "path" | "rect" | "text" | "tspan";
 
@@ -29,6 +28,8 @@ export type SvgAttr = {
   width?: number;
   style?: string;
 };
+
+export type Path = { x?: number; y?: number; dx?: number; dy?: number };
 
 export type SvgAttrs = { [K in keyof SvgAttr]?: SvgAttr[K] };
 
@@ -62,7 +63,7 @@ export interface Graphics {
       ry?: number;
     }
   ): void;
-  path(path: Vector[], close?: boolean, attrs?: SvgAttrs): void;
+  path(path: Path[], close?: boolean, attrs?: SvgAttrs): void;
   serialize(): string;
 }
 

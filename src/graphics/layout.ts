@@ -31,6 +31,7 @@ export const layout = (root: ContextNode, style: Style) => {
     }
   }
 
+  const PAD = 2 * style.padding;
   const layoutContext = (ctx: ContextNode, style: Style) => {
     if (ctx.nodes.size) {
       const graph = new dagre.graphlib.Graph({
@@ -49,44 +50,34 @@ export const layout = (root: ContextNode, style: Style) => {
         ({ id, width, height }) =>
           width && height && graph.setNode(id, { width, height })
       );
-      const edges = [...ctx.edges.values()].map((edge, index) => {
-        graph.setEdge(edge.sourceId, edge.targetId, {}, `${index}`);
-        return edge;
-      });
+      ctx.edges.forEach(({ source, target }, id) =>
+        graph.setEdge(source.id, target.id, {}, id)
+      );
       dagre.layout(graph);
 
       ctx.nodes.forEach((n) => {
         const gn = graph.node(n.id);
         if (gn) {
-          n!.x = gn.x;
-          n!.y = gn.y;
+          n.x = gn.x;
+          n.y = gn.y;
         }
       });
 
-      const r = [0, 0, 0, 0];
-      for (const e of graph.edges()) {
-        const ge = graph.edge(e);
-        const ne = edges[parseInt(e.name!)];
-        const start = ctx.nodes.get(e.v);
-        const end = ctx.nodes.get(e.w);
-        ne.path = [start!, ...ge.points!, end!].map((n) => ({
-          x: Math.floor(n.x!),
-          y: Math.floor(n.y!),
-        }));
-        ge.points!.forEach(({ x, y }) => {
-          r[0] = r[0] < x ? r[0] : x;
-          r[1] = r[1] > x ? r[1] : x;
-          r[2] = r[2] < y ? r[2] : y;
-          r[3] = r[3] < y ? r[3] : y;
-        }); //left,right,top,bottom
-      }
+      !ctx.id &&
+        graph.edges().forEach((e) => {
+          const ge = graph.edge(e);
+          const ne = ctx.edges.get(e.name!)!;
+          ne.path = [ne.source, ...ge.points!, ne.target].map((n) => ({
+            x: Math.floor(n.x!),
+            y: Math.floor(n.y!),
+          }));
+        });
       const { width = 0, height = 0 } = graph.graph();
-      ctx.width = Math.max(width, r[1] - r[0]) + 2 * style.padding;
-      ctx.height = Math.max(height, r[3] - r[2]) + 2 * style.padding;
+      ctx.width = width + PAD;
+      ctx.height = height + PAD;
     } else {
-      ctx.width =
-        style.padding * 2 + splitId(ctx.id).join(" ").length * style.fontSize;
-      ctx.height = style.padding * 3 + style.fontSize;
+      ctx.width = splitId(ctx.id).join(" ").length * style.fontSize + PAD;
+      ctx.height = style.fontSize + PAD;
     }
   };
 

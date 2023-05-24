@@ -1,6 +1,5 @@
 import { ContextNode, Edge, Node, Style, isContextNode } from "../artifacts";
 import {
-  Vector,
   add,
   difference,
   multiply,
@@ -9,11 +8,12 @@ import {
   splitId,
 } from "../utils";
 import { SvgGraphics } from "./SvgGraphics";
-import { Graphics, Renderable, SvgAttrs } from "./types";
+import { Graphics, Path, Renderable, SvgAttrs } from "./types";
 
-const CTX_STROKE = "#AAAAAA";
+const CTX_STROKE = "#aaaaaa";
 const NOTE_STROKE = "#555555";
-const ARROW_SIZE = 1;
+const EDGE_STROKE = "#dedede";
+const ARROW_SIZE = 1.5;
 
 const pickFontSize = (words: string[], w: number) => {
   const max = words
@@ -93,25 +93,35 @@ const renderText = (
   });
 };
 
-const getPath = (edge: Edge, style: Style): Vector[] => {
-  const path = edge.path!.slice(1, -1);
-  const endDir = normalize(difference(path[path.length - 2], path.at(-1)!));
-  const end = path.length - 1;
-  const copy = path.map((p) => ({ x: p.x, y: p.y }));
-  copy[end] = add(
-    copy[end],
-    multiply(endDir, ARROW_SIZE * (edge.arrow ? 5 : 0))
-  );
-  return copy;
+const getPath = (edge: Edge): Path[] => {
+  if (edge.path) {
+    const path = edge.path!.slice(1, -1);
+    const endDir = normalize(difference(path[path.length - 2], path.at(-1)!));
+    const end = path.length - 1;
+    const copy = path.map((p) => ({ x: p.x, y: p.y }));
+    copy[end] = add(
+      copy[end],
+      multiply(endDir, ARROW_SIZE * (edge.arrow ? 5 : 0))
+    );
+    return copy;
+  }
+  const x1 = edge.source.x! + edge.source.width! / 2;
+  const x2 = edge.target.x! - edge.target.width! / 2;
+  const y1 = edge.source.y!;
+  const y2 = edge.target.y!;
+  if (y1 === y2) return [{ x: x1, y: y1 }, { dx: x2 - x1 }];
+  const dx = Math.floor((x2 - x1) / 2);
+  const dy = Math.floor(y2 - y1);
+  return [{ x: x1, y: y1 }, { dx }, { dy }, { dx }];
 };
 
-const renderEdge = (edge: Edge, g: Graphics, style: Style) => {
-  const attrs: SvgAttrs = { fill: "none", stroke: edge.color };
-  edge.arrow && (attrs["stroke-width"] = 2);
-  const dash: SvgAttrs = edge.dashed
-    ? { "stroke-dasharray": edge.arrow ? "8 8" : "4 4" }
-    : {};
-  g.path(getPath(edge, style), false, { ...attrs, ...dash });
+const renderEdge = (edge: Edge, g: Graphics) => {
+  const attrs: SvgAttrs = {
+    fill: "none",
+    stroke: edge.arrow ? edge.color : EDGE_STROKE,
+  };
+  edge.arrow && (attrs["stroke-width"] = 3);
+  g.path(getPath(edge), false, { ...attrs });
   if (edge.arrow) {
     const end = edge.path![edge.path!.length - 2];
     const path = edge.path!.slice(1, -1);
@@ -234,7 +244,7 @@ const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
       g.attr("text-align", "center")
         .attr("text-anchor", "middle")
         .attr("stroke", NOTE_STROKE);
-    ctx.edges.forEach((e) => e.color && renderEdge(e, g, style));
+    ctx.edges.forEach((e) => e.color && renderEdge(e, g));
     ctx.nodes.forEach((n) => n.color && renderNode(n, g, style));
     renderRefs(ctx, g, style);
     g.ungroup();

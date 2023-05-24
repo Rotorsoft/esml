@@ -43,6 +43,14 @@ export const COLORS: { [key in Visual]: string } = {
   event: "#ffaa61",
 };
 
+type Rel = {
+  source: Node;
+  target: Node;
+  edge?: boolean;
+  color?: string;
+  arrow?: boolean;
+};
+
 export type Node = {
   id: string;
   visual: Visual;
@@ -54,22 +62,8 @@ export type Node = {
   height?: number;
 };
 
-export type Edge = {
-  sourceId: string;
-  targetId: string;
-  color?: string;
-  dashed?: boolean;
-  arrow?: boolean;
+export type Edge = Rel & {
   path?: Vector[];
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-};
-
-export type Ref = {
-  source: Node;
-  target: Node;
 };
 
 export type ContextNode = Node & {
@@ -87,7 +81,7 @@ type Rule = { visual: RelType; owns: boolean };
 
 export type Artifact = {
   grammar: { [key in Action]?: Rule };
-  rel: (source: Node, target: Node) => Edge | Ref | undefined;
+  rel: (source: Node, target: Node, root: ContextNode) => Rel | undefined;
 };
 
 export type Source = {

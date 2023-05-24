@@ -5,28 +5,30 @@ export const Context: Artifact = {
     includes: { visual: "artifact", owns: true },
   },
   // resolves inter-context relationships
-  rel: (source, target) => {
+  rel: (source, target, root) => {
     if (target.visual === "event")
       return {
-        sourceId: target.ctx!,
-        targetId: source.ctx!,
+        source: root.nodes.get(target.ctx!)!,
+        target: root.nodes.get(source.ctx!)!,
+        edge: true,
         color: COLORS.event,
-        dashed: true,
         arrow: true,
       };
 
     if (target.visual === "command")
       return {
-        sourceId: source.ctx!,
-        targetId: target.ctx!,
+        source: root.nodes.get(source.ctx!)!,
+        target: root.nodes.get(target.ctx!)!,
+        edge: true,
         color: COLORS.command,
         arrow: true,
       };
 
     if (target.visual === "projector")
       return {
-        sourceId: source.ctx!,
-        targetId: target.ctx!,
+        source: root.nodes.get(source.ctx!)!,
+        target: root.nodes.get(target.ctx!)!,
+        edge: true,
         color: COLORS.projector,
         arrow: true,
       };

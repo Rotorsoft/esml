@@ -7,12 +7,6 @@ export const System: Artifact = {
   },
   rel: (source, target) =>
     target.visual === "command"
-      ? {
-          sourceId: target.id,
-          targetId: source.id,
-        }
-      : {
-          sourceId: source.id,
-          targetId: target.id,
-        },
+      ? { source: target, target: source, edge: true }
+      : { source, target, edge: true },
 };

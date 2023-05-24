@@ -9,8 +9,9 @@ type Options = {
   WIDTH: number;
   HEIGHT: number;
   coordsSpan?: HTMLSpanElement;
-  zoomSpan?: HTMLSpanElement;
-  fitBtn?: HTMLButtonElement;
+  zoomBtn?: HTMLButtonElement;
+  zoomInBtn?: HTMLButtonElement;
+  zoomOutBtn?: HTMLButtonElement;
 };
 
 type State = {
@@ -31,8 +32,9 @@ export class Canvas extends EventEmitter {
   readonly HEIGHT = this.SCALE * 100;
   readonly svg: Element;
   readonly coordsSpan: HTMLSpanElement | undefined;
-  readonly zoomSpan: HTMLSpanElement | undefined;
-  readonly fitBtn: HTMLButtonElement | undefined;
+  readonly zoomBtn: HTMLButtonElement | undefined;
+  readonly zoomInBtn: HTMLButtonElement | undefined;
+  readonly zoomOutBtn: HTMLButtonElement | undefined;
 
   dragging = false;
   dx = 0;
@@ -55,8 +57,9 @@ export class Canvas extends EventEmitter {
       this.WIDTH = options.WIDTH;
       this.HEIGHT = options.HEIGHT;
       this.coordsSpan = options.coordsSpan;
-      this.zoomSpan = options.zoomSpan;
-      this.fitBtn = options.fitBtn;
+      this.zoomBtn = options.zoomBtn;
+      this.zoomInBtn = options.zoomInBtn;
+      this.zoomOutBtn = options.zoomOutBtn;
     }
     this.svg = this.document.createElementNS(
       "http://www.w3.org/2000/svg",
@@ -115,8 +118,12 @@ export class Canvas extends EventEmitter {
     this.container.addEventListener("touchend", dragEnd);
     this.container.addEventListener("touchmove", (e) => drag(e.touches[0]));
 
-    this.fitBtn &&
-      (this.fitBtn.onclick = () => this.fitToContainer.apply(this));
+    this.zoomBtn &&
+      (this.zoomBtn.onclick = () => this.fitToContainer.apply(this));
+    this.zoomInBtn &&
+      (this.zoomInBtn.onclick = () => this.zoomTo.apply(this, [0.1]));
+    this.zoomOutBtn &&
+      (this.zoomOutBtn.onclick = () => this.zoomTo.apply(this, [-0.1]));
   }
 
   public fitToContainer() {
@@ -129,6 +136,11 @@ export class Canvas extends EventEmitter {
       this.y = Math.floor((vh - this.h * this.zoom) / 2);
       this.transform();
     }
+  }
+
+  private zoomTo(z: number) {
+    this.fitZoom(this.zoom + z);
+    this.transform();
   }
 
   private fitZoom(z: number) {
@@ -146,8 +158,8 @@ export class Canvas extends EventEmitter {
       );
       this.coordsSpan &&
         (this.coordsSpan.innerText = `x:${this.x} y:${this.y} w:${this.w} h:${this.h}`);
-      this.zoomSpan &&
-        (this.zoomSpan.innerText = `${Math.floor(this.zoom * 100)}%`);
+      this.zoomBtn &&
+        (this.zoomBtn.innerText = `${Math.floor(this.zoom * 100)}%`);
       g.setAttribute(
         "transform",
         `translate(${this.x}, ${this.y}) scale(${this.zoom})`

@@ -191,15 +191,17 @@ const Controller = (canvas, bus) => {
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("container");
   const coordsSpan = document.getElementById("coords");
-  const zoomSpan = document.getElementById("zoom");
-  const fitBtn = document.getElementById("fit");
+  const zoomBtn = document.getElementById("zoom");
+  const zoomInBtn = document.getElementById("zoomIn");
+  const zoomOutBtn = document.getElementById("zoomOut");
   const canvas = new esml.Canvas(document, container, {
     SCALE: 80,
     WIDTH: 80 * 100,
     HEIGHT: 80 * 100,
     coordsSpan,
-    zoomSpan,
-    fitBtn,
+    zoomBtn,
+    zoomInBtn,
+    zoomOutBtn,
   });
 
   const store = Store();

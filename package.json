@@ -14,6 +14,11 @@
     "build": "rm -rf dist && npm install && npx tsc",
     "release": "npx semantic-release"
   },
+  "files": [
+    "dist",
+    "docs",
+    "cli"
+  ],
   "dependencies": {
     "dagre": "^0.8.5"
   },

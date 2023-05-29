@@ -7,7 +7,13 @@ module.exports = {
     [
       "@semantic-release/git",
       {
-        assets: ["package.json"], // commits and tags only package.json file
+        assets: [
+          "package.json",
+          "README.md",
+          "dist/**/*",
+          "docs/**/*",
+          "cli/**/*",
+        ], // commits and tags only package.json file
         message:
           "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}", // commit message
       },

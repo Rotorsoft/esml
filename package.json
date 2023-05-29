@@ -5,12 +5,18 @@
   "author": "rotorsoft <rotorsoft@outlook.com>",
   "license": "MIT",
   "repository": "git+https://github.com/rotorsoft/esml.git",
+  "private": false,
   "main": "dist/index",
   "types": "dist/index",
-  "files": [
-    "dist",
-    "docs"
-  ],
+  "scripts": {
+    "start": "rollup -c --watch --bundleConfigAsCjs rollup.config.js",
+    "test": "npx jest",
+    "build": "rm -rf dist && npm install && npx tsc",
+    "release": "npx semantic-release"
+  },
+  "dependencies": {
+    "dagre": "^0.8.5"
+  },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.0.2",
     "@rollup/plugin-typescript": "^11.1.0",
@@ -29,15 +35,5 @@
     "tsconfig-paths": "^4.2.0",
     "tslib": "^2.4.0",
     "typescript": "^5.0.4"
-  },
-  "scripts": {
-    "start": "rollup -c --watch --bundleConfigAsCjs rollup.config.js",
-    "test": "npx jest",
-    "build": "npm install && npx tsc",
-    "release": "npx semantic-release"
-  },
-  "private": false,
-  "dependencies": {
-    "dagre": "^0.8.5"
   }
 }

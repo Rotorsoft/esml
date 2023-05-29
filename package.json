@@ -12,13 +12,15 @@
     "start": "rollup -c --watch --bundleConfigAsCjs rollup.config.js",
     "test": "npx jest",
     "build": "rm -rf dist && npm install && npx tsc",
-    "release": "npx semantic-release",
-    "create-eventually-app": "node dist/cli/create-eventually-app.js"
+    "release": "npx semantic-release"
   },
   "files": [
     "dist",
     "docs"
   ],
+  "bin": {
+    "create-eventually-app": "dist/cli/create-eventually-app.js"
+  },
   "dependencies": {
     "dagre": "^0.8.5"
   },

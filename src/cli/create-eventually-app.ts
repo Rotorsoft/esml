@@ -1,99 +1,143 @@
 #!/usr/bin/env node
 
-import * as fs from "node:fs";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
+import * as os from "node:os";
+import {
+  createDirectory,
+  createFile,
+  executeCommand,
+  parseArguments,
+} from "./utils";
+import { generateContent } from "./generators";
 
-function createDirectory(directory: string): void {
-  if (!fs.existsSync(directory)) {
-    fs.mkdirSync(directory);
-  }
+const args = parseArguments(process.argv);
+if (!args.project) {
+  console.error("Please provide a project name using --project=name");
+  process.exit(1);
 }
+const projectDirectory = path.join(process.cwd(), args.project);
 
-function createFile(filePath: string, content: string): void {
-  fs.writeFileSync(filePath, content);
-}
-
-function executeCommand(command: string): void {
-  execSync(command, { stdio: "inherit" });
-}
-
-function createPackageJson(
-  projectDirectory: string,
-  projectName: string
-): void {
+function createPackageJson(): void {
+  const username = os.userInfo().username || "username";
   const packageJson = {
-    name: projectName,
-    version: "1.0.0",
+    name: args.project,
+    version: "0.1.0",
+    description: `Describe your ${args.project} project here`,
+    author: {
+      name: username,
+      email: `${username}@email.com`,
+    },
+    license: "MIT",
+    main: "dist/index.js",
     scripts: {
       start: "node dist/index.js",
+      test: "npx tsc && jest",
       build: "tsc",
-      dev: "ts-node-dev --respawn --transpileOnly src/index.ts",
+      dev: "ts-node-dev --respawn ./src/index.ts",
+    },
+    dependencies: {
+      "@rotorsoft/eventually": "^5",
+      "@rotorsoft/eventually-express": "^5",
+      "@rotorsoft/eventually-openapi": "^0",
+      "@rotorsoft/eventually-pg": "^5",
+      express: "^4",
+      zod: "^3",
     },
     devDependencies: {
-      typescript: "^4.4.3",
-      "ts-node-dev": "^1.1.8",
+      "@types/express": "^4",
+      "@types/jest": "^29",
+      "@types/node": "^18",
+      jest: "^29",
+      "ts-jest": "^29",
+      "ts-node": "^10",
+      "ts-node-dev": "^2",
+      typescript: "^5",
     },
   };
-
   createFile(
     path.join(projectDirectory, "package.json"),
     JSON.stringify(packageJson, null, 2)
   );
 }
 
-function createTsConfig(projectDirectory: string): void {
+function createTsConfig(): void {
   const tsConfig = {
     compilerOptions: {
-      target: "ES2020",
+      target: "ES2021",
       module: "commonjs",
       strict: true,
-      outDir: "./dist",
+      sourceMap: true,
+      declaration: true,
+      declarationMap: true,
+      noImplicitAny: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
+      sourceRoot: "src",
+      outDir: "dist",
     },
     exclude: ["node_modules"],
   };
-
   createFile(
     path.join(projectDirectory, "tsconfig.json"),
     JSON.stringify(tsConfig, null, 2)
   );
 }
 
-function createIndexFile(projectDirectory: string): void {
-  const indexContent = `
-    console.log('Hello, TypeScript!');
-  `;
-
-  createFile(path.join(projectDirectory, "src/index.ts"), indexContent);
+function createJestConfig(): void {
+  const jestConfig = {
+    preset: "ts-jest",
+    testEnvironment: "node",
+    testMatch: ["**/*spec.ts"],
+    coveragePathIgnorePatterns: [
+      "node_modules",
+      "dist",
+      "__tests__",
+      "__mocks__",
+    ],
+  };
+  createFile(
+    path.join(projectDirectory, "jest.config.js"),
+    `/* eslint-disable no-undef */
+    /** @type {import('ts-jest/dist/types').JestConfigWithTsJest} */
+    module.exports = ${JSON.stringify(jestConfig, null, 2)};
+    `
+  );
 }
 
-function createProjectStructure(
-  projectDirectory: string,
-  projectName: string
-): void {
-  createDirectory(projectDirectory);
-  createDirectory(path.join(projectDirectory, "src"));
-  createPackageJson(projectDirectory, projectName);
-  createTsConfig(projectDirectory);
-  createIndexFile(projectDirectory);
+function createEnv(): void {
+  createFile(
+    path.join(projectDirectory, ".env"),
+    `LOG_LEVEL=trace
+OAS_UI=Rapidoc
+
+# local PG docker container
+PG_HOST=localhost
+PG_USER=postgres
+PG_PASSWORD=postgres
+PG_DATABASE=postgres`
+  );
 }
 
-function installDependencies(projectDirectory: string): void {
-  executeCommand(`cd ${projectDirectory} && npm install`);
+function createGitIgnore(): void {
+  createFile(
+    path.join(projectDirectory, ".gitignore"),
+    `node_modules
+dist
+coverage`
+  );
 }
 
-function main(): void {
-  const projectName = process.argv[2];
-  if (!projectName) {
-    console.error("Please provide a project name.");
-    return;
-  }
-  const projectDirectory = path.join(process.cwd(), projectName);
+createDirectory(projectDirectory);
+createDirectory(path.join(projectDirectory, "src"));
+createDirectory(path.join(projectDirectory, "src", "schemas"));
+createDirectory(path.join(projectDirectory, "src", "__tests__"));
+createDirectory(path.join(projectDirectory, "dist"));
+createPackageJson();
+createTsConfig();
+createJestConfig();
+createEnv();
+createGitIgnore();
+generateContent(projectDirectory, args.project);
 
-  createProjectStructure(projectDirectory, projectName);
-  installDependencies(projectDirectory);
-
-  console.log(`Successfully created TS project '${projectName}'.`);
-}
-
-main();
+executeCommand(`cd ${projectDirectory} && npm install`);
+console.log(`Successfully created eventually project '${args.project}' 🚀`);

@@ -67,6 +67,32 @@ ${outputs.map((e) => `    ${e.name}: z.object({})`).join(",\n")}
 };
 `;
 
+  const unitTest = `import { app, client, dispose } from "@rotorsoft/eventually";
+import { ${art.name} } from "../${art.name}.${art.type}";
+import { randomUUID } from "node:crypto";
+
+describe("${art.name} ${art.type}", () => {
+  beforeAll(() => {
+    app().with(${art.name}).build();
+  });
+
+  afterAll(async () => {
+    await dispose()();
+  });
+
+  it("should handle commands", async() => {
+    const target = { stream: randomUUID(), actor: { id: randomUUID(), name: "actor", roles: [] } };
+${inputs
+  .map(
+    (c) => `    await client().command(${art.name}, "${c.name}", {}, target);`
+  )
+  .join("\n")}
+    const snap = await client().load(${art.name}, target.stream);
+    expect(snap.state).toBeDefined;
+  })
+})  
+`;
+
   createFile(
     path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
     content
@@ -74,6 +100,10 @@ ${outputs.map((e) => `    ${e.name}: z.object({})`).join(",\n")}
   createFile(
     path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
     schemas
+  );
+  createFile(
+    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
+    unitTest
   );
 }
 
@@ -107,6 +137,31 @@ ${inputs.map((e) => `    ${e.name}: z.object({})`).join(",\n")}
 };
 `;
 
+  const unitTest = `import { app, broker, client, dispose } from "@rotorsoft/eventually";
+import { ${art.name} } from "../${art.name}.${art.type}";
+
+describe("${art.name} ${art.type}", () => {
+  beforeAll(() => {
+    app().with(${art.name}).build();
+  });
+
+  afterAll(async () => {
+    await dispose()();
+  });
+
+  it("should handle events", async() => {
+${inputs
+  .map(
+    (e) =>
+      `    await client().event(${art.name}, { name: "${e.name}", data: {}, id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} } });`
+  )
+  .join("\n")}
+    await broker().drain();
+    expect(1).toBeDefined; // TODO: expect side effects
+  })
+})  
+`;
+
   createFile(
     path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
     content
@@ -114,6 +169,10 @@ ${inputs.map((e) => `    ${e.name}: z.object({})`).join(",\n")}
   createFile(
     path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
     schemas
+  );
+  createFile(
+    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
+    unitTest
   );
 }
 
@@ -147,6 +206,31 @@ ${inputs.map((e) => `    ${e.name}: z.object({})`).join(",\n")}
 };
 `;
 
+  const unitTest = `import { app, broker, client, dispose } from "@rotorsoft/eventually";
+import { ${art.name} } from "../${art.name}.${art.type}";
+
+describe("${art.name} ${art.type}", () => {
+  beforeAll(() => {
+    app().with(${art.name}).build();
+  });
+
+  afterAll(async () => {
+    await dispose()();
+  });
+
+  it("should handle events", async() => {
+${inputs
+  .map(
+    (e) =>
+      `    await client().project(${art.name}, { name: "${e.name}", data: {}, id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} } });`
+  )
+  .join("\n")}
+    await broker().drain();
+    const records = await client().read(Tickets, "projectionId", ()=>{});
+  })
+})  
+`;
+
   createFile(
     path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
     content
@@ -154,6 +238,10 @@ ${inputs.map((e) => `    ${e.name}: z.object({})`).join(",\n")}
   createFile(
     path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
     schemas
+  );
+  createFile(
+    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
+    unitTest
   );
 }
 

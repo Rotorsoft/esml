@@ -31,7 +31,7 @@ function createPackageJson(): void {
     main: "dist/index.js",
     scripts: {
       start: "node dist/index.js",
-      test: "npx tsc && jest",
+      test: "jest --coverage",
       build: "tsc",
       dev: "ts-node-dev --respawn ./src/index.ts",
     },

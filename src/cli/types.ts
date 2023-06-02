@@ -1,4 +1,4 @@
-import { ArtType, RelType } from "../artifacts";
+import { Visual } from "../artifacts";
 
 export interface Arguments {
   [key: string]: string;
@@ -6,6 +6,7 @@ export interface Arguments {
 
 export type Art = {
   name: string;
-  type: ArtType;
-  rels: Array<{ name: string; type: RelType }>;
+  type: Visual;
+  inputs: string[];
+  outputs: string[];
 };

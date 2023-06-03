@@ -12,7 +12,6 @@ import { Graphics, Path, Renderable, SvgAttrs } from "./types";
 
 const CTX_STROKE = "#aaaaaa";
 const NOTE_STROKE = "#555555";
-const EDGE_STROKE = "#dedede";
 const ARROW_SIZE = 1.5;
 
 const pickFontSize = (words: string[], w: number) => {
@@ -118,7 +117,7 @@ const getPath = (edge: Edge): Path[] => {
 const renderEdge = (edge: Edge, g: Graphics) => {
   const attrs: SvgAttrs = {
     fill: "none",
-    stroke: edge.arrow ? edge.color : EDGE_STROKE,
+    stroke: edge.arrow ? edge.color : edge.target.color,
   };
   edge.arrow && (attrs["stroke-width"] = 3);
   g.path(getPath(edge), false, { ...attrs });
@@ -244,7 +243,10 @@ const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
       g.attr("text-align", "center")
         .attr("text-anchor", "middle")
         .attr("stroke", NOTE_STROKE);
-    ctx.edges.forEach((e) => e.color && renderEdge(e, g));
+    ctx.edges.forEach(
+      (e) =>
+        e.color && renderEdge({ ...e, source: ctx.nodes.get(e.source.id)! }, g)
+    );
     ctx.nodes.forEach((n) => n.color && renderNode(n, g, style));
     renderRefs(ctx, g, style);
     g.ungroup();

@@ -57,7 +57,7 @@ export const parse = (code: string): Map<string, Statement> => {
     if ([...Keywords].includes(token as any)) error(expected, token);
   };
 
-  const BLANKS = ["\t", " ", "\n"];
+  const BLANKS = ["\t", " ", "\n", "\r"];
   const skipBlanksAndComments = (): void => {
     Object.assign(token_to, pos);
     while (pos.ix < code.length) {

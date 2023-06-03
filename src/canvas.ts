@@ -127,8 +127,8 @@ export class Canvas extends EventEmitter {
   }
 
   public fitToContainer() {
-    const vw = this.container.clientWidth;
-    const vh = this.container.clientHeight;
+    const vw = Math.min(this.container.clientWidth, window.innerWidth);
+    const vh = Math.min(this.container.clientHeight, window.innerHeight);
     if (this.w && this.h && vw && vh) {
       // avoid NaN
       this.fitZoom(Math.min(vw / this.w, vh / this.h));

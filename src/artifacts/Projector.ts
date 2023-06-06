@@ -1,7 +1,7 @@
 import { Artifact, COLORS } from "./types";
 
 export const Projector: Artifact = {
-  grammar: { handles: { visual: "event", owns: false } },
+  grammar: { handles: { type: "event" } },
   rel: (source, target) => ({
     source:
       source.ctx === target.ctx ? target : { ...target, id: target.id + "*" },

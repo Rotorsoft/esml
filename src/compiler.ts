@@ -3,6 +3,7 @@ import {
   COLORS,
   ContextNode,
   Edge,
+  Field,
   Node,
   Source,
   Statement,
@@ -51,7 +52,7 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     statement: Statement,
     id: string,
     visual: Visual,
-    owns: boolean
+    owns = false
   ): Node => {
     const found = nodes.get(id);
     if (found) {
@@ -71,12 +72,11 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     if (statement && !statement.context) {
       statement.context = ctx.id;
       const node = newNode(statement, id, statement.type, true);
-      statement.rels.forEach(({ visual, owns }, id) => {
+      statement.rels.forEach(({ type, owns }, id) => {
         const rel = statements.get(id);
         rel && ROOT_ARTS.includes(rel.type) && error(statement, "artifact", id); // don't rel root arts
-        visual === "artifact" &&
-          error(statement, "artifact type", "nested context");
-        newNode(statement, id, visual as Visual, owns);
+        !type && error(statement, "artifact type", "nested context");
+        newNode(statement, id, type as Visual, owns);
       });
       ctx.nodes.set(id, node);
     } else {
@@ -104,10 +104,11 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     }
   });
 
-  // orphans in global context
+  // group orphans in global context
   const global = newContext("global");
   statements.forEach(
-    (statement, id) => !statement.context && addNode(global, id)
+    (statement, id) =>
+      statement.type !== "schema" && !statement.context && addNode(global, id)
   );
   nodes.forEach((node) => {
     if (!node.ctx) {
@@ -143,7 +144,18 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
 
   // connect the model!
   statements.forEach((statement, id) => {
-    if (statement.type !== "context") {
+    if (statement.type === "schema") {
+      const target = nodes.get(id)!;
+      target.schema = target.schema || new Map<string, Field>();
+      statement.rels.forEach((rule, name) => {
+        const field: Field = {
+          name,
+          required: rule.action === "requires",
+          type: "string", // TODO: typings
+        };
+        target.schema?.set(name, field);
+      });
+    } else if (statement.type !== "context") {
       const artifact = artifacts[statement.type];
       const source = nodes.get(id)!;
       const ctx = root.nodes.get(source.ctx!)! as ContextNode;

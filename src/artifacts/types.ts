@@ -18,10 +18,19 @@ export const ArtTypes = [
   "projector",
   "policy",
   "process",
+  "schema",
 ] as const;
 const Messages = ["command", "event"] as const;
 const Visuals = [...ArtTypes, ...Messages] as const;
-const Actions = ["invokes", "handles", "emits", "includes", "reads"] as const;
+const Actions = [
+  "invokes",
+  "handles",
+  "emits",
+  "includes",
+  "reads",
+  "requires",
+  "optional",
+] as const;
 export const Keywords = [...ArtTypes, ...Actions] as const;
 
 export type ArtType = (typeof ArtTypes)[number];
@@ -29,7 +38,7 @@ export type Message = (typeof Messages)[number];
 export type Visual = (typeof Visuals)[number];
 export type Action = (typeof Actions)[number];
 export type Keyword = (typeof Keywords)[number];
-export type RelType = Message | "projector" | "artifact";
+export type RelType = Message | "projector" | "field";
 
 export const COLORS: { [key in Visual]: string } = {
   context: "white",
@@ -41,6 +50,7 @@ export const COLORS: { [key in Visual]: string } = {
   process: "#c595cd",
   command: "#7adcfb",
   event: "#ffaa61",
+  schema: "transparent",
 };
 
 type Rel = {
@@ -51,10 +61,18 @@ type Rel = {
   arrow?: boolean;
 };
 
+export type Field = {
+  name: string;
+  required: boolean;
+  type: Field | "string" | "numeric";
+  size?: number;
+};
+
 export type Node = {
   id: string;
   visual: Visual;
   ctx?: string;
+  schema?: Map<string, Field>;
   color?: string;
   x?: number;
   y?: number;
@@ -77,7 +95,7 @@ export type ContextNode = Node & {
 export const isContextNode = (node: Node): node is ContextNode =>
   "nodes" in node;
 
-type Rule = { visual: RelType; owns: boolean };
+type Rule = { type?: RelType; owns?: boolean };
 
 export type Artifact = {
   grammar: { [key in Action]?: Rule };
@@ -92,6 +110,6 @@ export type Source = {
 export type Statement = {
   type: ArtType;
   source: Source;
-  rels: Map<string, Rule>;
+  rels: Map<string, Rule & { action: Action }>;
   context?: string;
 };

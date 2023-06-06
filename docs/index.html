@@ -116,6 +116,22 @@
         stroke: #efefef;
         filter: none;
       }
+      .node-tooltip-visible {
+        position: absolute;
+        border: solid 1px #eeeeee;
+        padding: 5px;
+        border-radius: 5px;
+        z-index: 9999;
+        background-color: rgb(247, 245, 219);
+        max-width: 200px;
+        max-height: 300px;
+        overflow: auto;
+        font-family: monospace;
+        font-size: 8px;
+      }
+      .node-tooltip {
+        visibility: hidden;
+      }
     </style>
   </head>
   <body>

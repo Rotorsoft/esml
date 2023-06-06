@@ -130,14 +130,15 @@ export const parse = (code: string): Map<string, Statement> => {
     if (ArtTypes.includes(next.token as ArtType)) return next; // declaration only
     const grammar = artifacts[type.token as ArtType].grammar;
     while (next.token in grammar) {
-      const rel = grammar[next.token as Action];
+      const action = next.token as Action;
+      const rel = grammar[action];
       const { token: names, source } = nextToken();
       !names && error("names", "nothing");
       names.split(",").forEach((n) => notKeyword(n.trim(), "names"));
       names
         .split(",")
         .filter(Boolean)
-        .forEach((n) => statement?.rels.set(n, rel!));
+        .forEach((n) => statement?.rels.set(n, { ...rel!, action }));
       statement.source.to = source.to;
       next = nextToken();
     }

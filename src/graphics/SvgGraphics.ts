@@ -65,7 +65,10 @@ export class SvgGraphics implements Graphics {
     const element = new SvgElement("g", {}, this.current);
     this.current.append(element);
     this.current = element;
-    name && this.attr("data-name", name);
+    if (name) {
+      this.attr("id", "g-" + name);
+      this.attr("data-name", name);
+    }
     if (attrs) {
       attrs.class && this.attr("class", attrs.class);
       (attrs.dx || attrs.dy) &&

@@ -2,9 +2,9 @@ import { Artifact, COLORS } from "./types";
 
 export const Policy: Artifact = {
   grammar: {
-    handles: { visual: "event", owns: false },
-    invokes: { visual: "command", owns: false },
-    reads: { visual: "projector", owns: false },
+    handles: { type: "event" },
+    invokes: { type: "command" },
+    reads: { type: "projector" },
   },
   rel: (source, target) =>
     target.visual === "event"

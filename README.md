@@ -24,6 +24,8 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 - <events\> ::= <event\> {"," <event\>}
 - <projectors\> ::= <projector\> {"," <projector\>}
 - <artifacts\> ::= <artifact\> {"," <artifact\>}
+- <field\> ::= <noun\>
+- <fields\> ::= <field\> {"," <field\>}
 - <actor_stmt\> ::= "actor" <actor\> { ("invokes" <commands\>) | ("reads" <projectors\>) }
 - <aggregate_stmt\> ::= "aggregate" <aggregate\> { ("handles" <commands\>) | ("emits" <events\>) }
 - <system_stmt\> ::= "system" <system\> { ("handles" <commands\>) | ("emits" <events\>) }
@@ -31,7 +33,8 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 - <process_stmt\> ::= "process" <process\> { ("handles" <events\>) | ("invokes" <commands\>) | ("reads" <projectors\>) }
 - <projector_stmt\> ::= "projector" <projector\> { "handles" <events\> }
 - <context_stmt\> ::= "context" <context\> { "includes" <artifacts\> }
-- <statement\> ::= <actor_stmt\> | <aggregate_stmt\> | <system_stmt\> | <policy_stmt\> | <process_stmt\> | <projector_stmt\> | <context_stmt\>
+- <schema_stmt\> ::= "schema" { <command\> | <event\> | <aggregate\> | <process\> | <projector\> } { ("requires" <fields\>) | ("optional" <fields\>) }
+- <statement\> ::= <actor_stmt\> | <aggregate_stmt\> | <system_stmt\> | <policy_stmt\> | <process_stmt\> | <projector_stmt\> | <context_stmt\> | <schema_stmt\>
 - <esml\> ::= { <comment\> | <statement\> }
 
 ## Instructions

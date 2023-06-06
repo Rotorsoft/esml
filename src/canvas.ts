@@ -1,4 +1,4 @@
-import { esml } from "./esml";
+import { esml, Node } from "./esml";
 import { EventEmitter } from "./utils";
 
 const MIN_X = 0,
@@ -30,21 +30,24 @@ export class Canvas extends EventEmitter {
   readonly SCALE: number = 80;
   readonly WIDTH = this.SCALE * 100;
   readonly HEIGHT = this.SCALE * 100;
+  readonly tooltip: HTMLDivElement;
   readonly svg: Element;
   readonly coordsSpan: HTMLSpanElement | undefined;
   readonly zoomBtn: HTMLButtonElement | undefined;
   readonly zoomInBtn: HTMLButtonElement | undefined;
   readonly zoomOutBtn: HTMLButtonElement | undefined;
 
-  dragging = false;
-  dx = 0;
-  dy = 0;
+  private nodes?: HTMLDivElement;
 
-  zoom = 1;
-  x = 0;
-  y = 0;
-  w = 0;
-  h = 0;
+  private dragging = false;
+  private dx = 0;
+  private dy = 0;
+
+  private zoom = 1;
+  private x = 0;
+  private y = 0;
+  private w = 0;
+  private h = 0;
 
   constructor(
     private document: Document,
@@ -52,6 +55,10 @@ export class Canvas extends EventEmitter {
     options?: Options
   ) {
     super();
+    this.tooltip = document.createElement("div");
+    this.tooltip.className = "node-tooltip";
+    this.container.appendChild(this.tooltip);
+
     if (options) {
       this.SCALE = options.SCALE;
       this.WIDTH = options.WIDTH;
@@ -168,14 +175,65 @@ export class Canvas extends EventEmitter {
     }
   }
 
+  private addNodes(nodes?: Node[]) {
+    const handleMouseEnter = (event: MouseEvent) => {
+      const g = event.target as SVGGElement;
+      const name = g.dataset.name;
+      const node = this.document.getElementById("node-" + name);
+      if (node) {
+        this.tooltip.innerHTML = node?.innerHTML;
+        this.tooltip.className = "node-tooltip-visible";
+        const { left, top, width } = g.getBoundingClientRect();
+        const x = left + (width - this.tooltip.offsetWidth) / 2;
+        const y = top - this.tooltip.offsetHeight - 10; // space on top
+        this.tooltip.style.left = x + "px";
+        this.tooltip.style.top = y + "px";
+      }
+    };
+    const handleMouseLeave = () => {
+      this.tooltip.className = "node-tooltip";
+      this.tooltip.innerText = "";
+    };
+    this.nodes && this.container.removeChild(this.nodes);
+    this.nodes = this.document.createElement("div");
+    this.container.appendChild(this.nodes);
+    this.nodes.setAttribute("visible", "none");
+    nodes &&
+      nodes
+        .filter((node) => node.fields.length)
+        .map((node) => {
+          const el = this.document.createElement("div");
+          el.id = "node-" + node.id;
+          el.innerHTML = `<h6>${node.id}</h6>
+        <table class="table table-sm">
+          ${node.fields
+            .map((f) => {
+              const name =
+                f.name.length > 10 ? f.name.substring(0, 10) + "..." : f.name;
+              const tel = f.required ? "th" : "td";
+              return `<tr><${tel}>${name}</${tel}><td>${f.type}</td></tr>`;
+            })
+            .join("")}
+        </table>
+        `;
+          this.nodes?.appendChild(el);
+          const g = this.document.getElementById("g-" + node.id);
+          if (g) {
+            g.addEventListener("mouseenter", handleMouseEnter);
+            g.addEventListener("mouseleave", handleMouseLeave);
+          }
+        });
+  }
+
   public render(state: State): Error | undefined {
-    const { error, svg, width, height } = esml(
+    const { error, svg, width, height, nodes } = esml(
       state.code,
       this.SCALE,
       state.font
     );
     if (error) return error;
     this.svg.innerHTML = svg!;
+    this.addNodes(nodes);
     this.w = Math.floor(width!);
     this.h = Math.floor(height!);
     if (state.zoom) {

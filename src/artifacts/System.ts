@@ -2,8 +2,8 @@ import { Artifact } from "./types";
 
 export const System: Artifact = {
   grammar: {
-    handles: { visual: "command", owns: true },
-    emits: { visual: "event", owns: true },
+    handles: { type: "command", owns: true },
+    emits: { type: "event", owns: true },
   },
   rel: (source, target) =>
     target.visual === "command"

@@ -72,6 +72,9 @@ aggregate Product handles AddProduct emits ProductAdded
 
 context Admin includes
 	Tenant, Agent, Product
+
+schema OpenTicket requires id,title optional description
+schema AssignTicket requires id,agentId optional expires 
 `;
 
 const SRC_KEY = "ESML-Cache";

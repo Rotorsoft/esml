@@ -1,4 +1,4 @@
-import { Style } from "./artifacts";
+import { ContextNode, Field, Style, Visual } from "./artifacts";
 import { CompilerError, compile } from "./compiler";
 import { layout, render } from "./graphics";
 import { ParseError, parse } from "./parser";
@@ -12,11 +12,28 @@ const FONTS: { [key in Font]: string } = {
 };
 const DEFAULT_FONT = "inconsolata";
 
+export type Node = {
+  id: string;
+  visual: Visual;
+  ctx: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fields: Field[];
+};
+
 export const esml = (
   code: string,
   scale: number,
   font = DEFAULT_FONT
-): { error?: Error; svg?: string; width?: number; height?: number } => {
+): {
+  error?: Error;
+  svg?: string;
+  width?: number;
+  height?: number;
+  nodes?: Node[];
+} => {
   const style: Style = {
     scale,
     stroke: "#dedede",
@@ -32,7 +49,27 @@ export const esml = (
     const root = compile(statements);
     layout(root, style);
     const svg = render(root, style);
-    return { svg, width: root.width, height: root.height };
+    const nodes = [...root.nodes.values()]
+      .filter((n) => n.id !== "actors")
+      .flatMap((n) => [...(n as ContextNode).nodes.values()]);
+    return {
+      svg,
+      width: root.width,
+      height: root.height,
+      nodes: nodes.map(
+        ({ id, visual, ctx, x, y, width, height, schema }) =>
+          ({
+            id,
+            visual,
+            ctx,
+            x,
+            y,
+            width,
+            height,
+            fields: schema ? [...schema.values()] : [],
+          } as Node)
+      ),
+    };
   } catch (error: any) {
     if (error instanceof ParseError) return { error };
     if (error instanceof CompilerError) return { error };

@@ -2,7 +2,7 @@ import { Artifact, COLORS } from "./types";
 
 export const Context: Artifact = {
   grammar: {
-    includes: { visual: "artifact", owns: true },
+    includes: { owns: true },
   },
   // resolves inter-context relationships
   rel: (source, target, root) => {

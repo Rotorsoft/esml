@@ -126,8 +126,8 @@ export const parse = (code: string): Map<string, Statement> => {
             partial = "";
             token += char;
             pos.ix++;
+            skipBlanksAndComments();
           } else break;
-          skipBlanksAndComments();
         }
       }
     }

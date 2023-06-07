@@ -90,13 +90,14 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
   };
 
   const buildSchema = (node: Node, statement: Statement): void => {
-    statement.rels.forEach((rule, name) => {
-      if (rule.action === "requires" || rule.action === "optional") {
+    statement.rels.forEach((rule, value) => {
+      if (rule.schema) {
         node.schema = node.schema || new Map<string, Field>();
+        const [name, type] = value.split(":");
         const field: Field = {
           name,
           required: rule.action === "requires",
-          type: "string", // TODO: typings
+          type: type || "string",
         };
         node.schema?.set(name, field);
       }
@@ -167,32 +168,34 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
       buildSchema(source, statement);
 
       const ctx = root.nodes.get(source.ctx!)! as ContextNode;
-      statement.rels.forEach((_, id) => {
-        const target = nodes.get(id)!;
+      statement.rels.forEach((rule, id) => {
+        if (!rule.schema) {
+          const target = nodes.get(id)!;
 
-        // connect contexts
-        if (ctx.color && source.ctx !== target.ctx) {
-          const edge = artifacts.context.rel(source, target, root) as Edge;
-          if (edge) {
-            const key = `${edge.source.id}->${edge.target.id}-${
-              edge.color || ""
-            }`;
-            !root.edges.has(key) && root.edges.set(key, edge);
+          // connect contexts
+          if (ctx.color && source.ctx !== target.ctx) {
+            const edge = artifacts.context.rel(source, target, root) as Edge;
+            if (edge) {
+              const key = `${edge.source.id}->${edge.target.id}-${
+                edge.color || ""
+              }`;
+              !root.edges.has(key) && root.edges.set(key, edge);
+            }
           }
-        }
 
-        // connect visuals in context
-        const rel = artifact.rel(source, target, root);
-        if (rel) {
-          if (rel.edge) {
-            ctx.edges.set(`${rel.source.id}->${rel.target.id}`, rel);
-            ctx.nodes.set(rel.source.id, rel.source);
-            ctx.nodes.set(rel.target.id, rel.target);
-          } else {
-            const src_ctx = root.nodes.get(rel.source.ctx!)! as ContextNode;
-            !src_ctx.refs.has(rel.source.id) &&
-              src_ctx.refs.set(rel.source.id, new Set());
-            src_ctx.refs.get(rel.source.id)?.add(rel.target);
+          // connect visuals in context
+          const rel = artifact.rel(source, target, root);
+          if (rel) {
+            if (rel.edge) {
+              ctx.edges.set(`${rel.source.id}->${rel.target.id}`, rel);
+              ctx.nodes.set(rel.source.id, rel.source);
+              ctx.nodes.set(rel.target.id, rel.target);
+            } else {
+              const src_ctx = root.nodes.get(rel.source.ctx!)! as ContextNode;
+              !src_ctx.refs.has(rel.source.id) &&
+                src_ctx.refs.set(rel.source.id, new Set());
+              src_ctx.refs.get(rel.source.id)?.add(rel.target);
+            }
           }
         }
       });

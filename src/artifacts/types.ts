@@ -61,10 +61,11 @@ type Rel = {
   arrow?: boolean;
 };
 
+export type FieldType = "string" | "number" | string;
 export type Field = {
   name: string;
   required: boolean;
-  type: Field | "string" | "numeric";
+  type: FieldType;
   size?: number;
 };
 
@@ -110,6 +111,6 @@ export type Source = {
 export type Statement = {
   type: ArtType;
   source: Source;
-  rels: Map<string, Rule & { action: Action }>;
+  rels: Map<string, Rule & { action: Action; schema: boolean }>;
   context?: string;
 };

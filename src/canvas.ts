@@ -207,6 +207,7 @@ export class Canvas extends EventEmitter {
           el.innerHTML = `<h6>${node.id}</h6>
         <table class="table table-sm">
           ${node.fields
+            .slice(0, 20)
             .map((f) => {
               const name =
                 f.name.length > 10 ? f.name.substring(0, 10) + "..." : f.name;
@@ -214,6 +215,9 @@ export class Canvas extends EventEmitter {
               return `<tr><${tel}>${name}</${tel}><td>${f.type}</td></tr>`;
             })
             .join("")}
+            ${
+              node.fields.length > 20 ? "<tr><td colspan='2'>...</td></tr>" : ""
+            }
         </table>
         `;
           this.nodes?.appendChild(el);

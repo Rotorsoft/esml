@@ -29,10 +29,11 @@ type Rel = {
     color?: string;
     arrow?: boolean;
 };
+export type FieldType = "string" | "number" | string;
 export type Field = {
     name: string;
     required: boolean;
-    type: Field | "string" | "numeric";
+    type: FieldType;
     size?: number;
 };
 export type Node = {
@@ -82,6 +83,7 @@ export type Statement = {
     source: Source;
     rels: Map<string, Rule & {
         action: Action;
+        schema: boolean;
     }>;
     context?: string;
 };

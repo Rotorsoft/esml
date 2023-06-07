@@ -186,7 +186,8 @@ const note = (node, g) => {
     node.schema &&
         g.text(`{${node.schema.size}}`, node.width - 6, 6, {
             "font-family": "monospace",
-            "font-size": "12pt",
+            "font-size": "6pt",
+            fill: NOTE_STROKE,
         });
 };
 const renderNode = (node, g, style) => {

@@ -4,7 +4,7 @@ exports.parse = exports.ParseError = void 0;
 const artifacts_1 = require("./artifacts");
 class ParseError extends Error {
     constructor(source, expected, actual) {
-        super(`Parser error at line ${source.from.line}: Expected ${expected} but got ${actual}`);
+        super(`Parser error at line ${source.from.line + 1}: Expected ${expected} but got ${actual}`);
         this.source = source;
         this.expected = expected;
         this.actual = actual;
@@ -52,13 +52,27 @@ const parse = (code) => {
                 break;
         }
     };
-    const nextToken = () => {
+    const parseType = () => {
         skipBlanksAndComments();
+        const str = code.substring(pos.ix, pos.ix + 10);
+        const match = /^(string|number)/.exec(str);
+        if (match && match.length) {
+            const type = match[0];
+            pos.ix += type.length;
+            return type;
+        }
+        const next = code.slice(pos.ix + 1).search(/[^a-zA-Z\d]/);
+        pos.ix = next ? next + pos.ix + 1 : code.length;
+        Object.assign(token_to, pos);
+        error("string|number", str);
+    };
+    const nextToken = (schema = false) => {
+        skipBlanksAndComments();
+        Object.assign(token_from, pos);
+        Object.assign(token_to, pos);
         let partial = "";
         let token = "";
         let char = "";
-        Object.assign(token_from, pos);
-        Object.assign(token_to, pos);
         while (pos.ix < code.length) {
             char = code.charAt(pos.ix);
             if ((char >= "a" && char <= "z") ||
@@ -68,18 +82,29 @@ const parse = (code) => {
                 token += char;
                 pos.ix++;
             }
-            else if (![",", ...BLANKS].includes(char)) {
+            else if (![",", ":", ...BLANKS].includes(char)) {
                 error("identifier", char);
             }
             else {
                 skipBlanksAndComments();
                 if (pos.ix < code.length) {
                     char = code.charAt(pos.ix);
-                    if (char !== ",")
+                    if (char === ":") {
+                        if (schema) {
+                            pos.ix++;
+                            const type = parseType();
+                            token += ":" + type;
+                        }
+                        else
+                            error("identifier", char);
+                    }
+                    else if (char === ",") {
+                        partial = "";
+                        token += char;
+                        pos.ix++;
+                    }
+                    else
                         break;
-                    partial = "";
-                    token += char;
-                    pos.ix++;
                     skipBlanksAndComments();
                 }
             }
@@ -108,14 +133,15 @@ const parse = (code) => {
         const grammar = artifacts_1.artifacts[type.token].grammar;
         while (next.token in grammar) {
             const action = next.token;
+            const schema = action === "requires" || action === "optional";
             const rel = grammar[action];
-            const { token: names, source } = nextToken();
+            const { token: names, source } = nextToken(schema);
             !names && error("names", "nothing");
             names.split(",").forEach((n) => notKeyword(n.trim(), "names"));
             names
                 .split(",")
                 .filter(Boolean)
-                .forEach((n) => statement?.rels.set(n, { ...rel, action }));
+                .forEach((n) => statement?.rels.set(n, { ...rel, action, schema }));
             statement.source.to = source.to;
             next = nextToken();
         }
@@ -128,7 +154,7 @@ const parse = (code) => {
         else if (next.token.length)
             error("keyword", next.token);
     }
-    //console.log(statements);
+    // console.log(statements);
     return statements;
 };
 exports.parse = parse;

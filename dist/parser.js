@@ -30,7 +30,7 @@ const parse = (code) => {
         if ([...artifacts_1.Keywords].includes(token))
             error(expected, token);
     };
-    const BLANKS = ["\t", " ", "\n"];
+    const BLANKS = ["\t", " ", "\n", "\r"];
     const skipBlanksAndComments = () => {
         Object.assign(token_to, pos);
         while (pos.ix < code.length) {
@@ -98,7 +98,8 @@ const parse = (code) => {
                 rels: new Map(),
             });
         const statement = statements.get(name);
-        if (statement.type !== type.token)
+        type.token !== "schema" &&
+            statement.type !== type.token &&
             error(statement.type, type.token);
         statement.source.to = source.to;
         let next = nextToken();
@@ -106,14 +107,15 @@ const parse = (code) => {
             return next; // declaration only
         const grammar = artifacts_1.artifacts[type.token].grammar;
         while (next.token in grammar) {
-            const rel = grammar[next.token];
+            const action = next.token;
+            const rel = grammar[action];
             const { token: names, source } = nextToken();
             !names && error("names", "nothing");
             names.split(",").forEach((n) => notKeyword(n.trim(), "names"));
             names
                 .split(",")
                 .filter(Boolean)
-                .forEach((n) => statement?.rels.set(n, rel));
+                .forEach((n) => statement?.rels.set(n, { ...rel, action }));
             statement.source.to = source.to;
             next = nextToken();
         }
@@ -126,6 +128,7 @@ const parse = (code) => {
         else if (next.token.length)
             error("keyword", next.token);
     }
+    //console.log(statements);
     return statements;
 };
 exports.parse = parse;

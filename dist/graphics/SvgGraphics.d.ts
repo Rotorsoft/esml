@@ -23,6 +23,8 @@ export declare class SvgGraphics implements Graphics {
         fill?: string;
         stroke?: string;
         dy?: number | string;
+        "font-family"?: string;
+        "font-size"?: number | string;
     }): void;
     serialize(): string;
 }

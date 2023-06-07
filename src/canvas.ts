@@ -185,7 +185,7 @@ export class Canvas extends EventEmitter {
         this.tooltip.className = "node-tooltip-visible";
         const { left, top, width } = g.getBoundingClientRect();
         const x = left + (width - this.tooltip.offsetWidth) / 2;
-        const y = top - this.tooltip.offsetHeight - 10; // space on top
+        const y = top - this.tooltip.offsetHeight;
         this.tooltip.style.left = x + "px";
         this.tooltip.style.top = y + "px";
       }
@@ -197,7 +197,7 @@ export class Canvas extends EventEmitter {
     this.nodes && this.container.removeChild(this.nodes);
     this.nodes = this.document.createElement("div");
     this.container.appendChild(this.nodes);
-    this.nodes.setAttribute("visible", "none");
+    this.nodes.style.visibility = "hidden";
     nodes &&
       nodes
         .filter((node) => node.fields.length)

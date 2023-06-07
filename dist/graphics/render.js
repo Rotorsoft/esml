@@ -6,7 +6,6 @@ const utils_1 = require("../utils");
 const SvgGraphics_1 = require("./SvgGraphics");
 const CTX_STROKE = "#aaaaaa";
 const NOTE_STROKE = "#555555";
-const EDGE_STROKE = "#dedede";
 const ARROW_SIZE = 1.5;
 const pickFontSize = (words, w) => {
     const max = words
@@ -88,7 +87,7 @@ const getPath = (edge) => {
 const renderEdge = (edge, g) => {
     const attrs = {
         fill: "none",
-        stroke: edge.arrow ? edge.color : EDGE_STROKE,
+        stroke: edge.arrow ? edge.color : edge.target.color,
     };
     edge.arrow && (attrs["stroke-width"] = 3);
     g.path(getPath(edge), false, { ...attrs });
@@ -174,7 +173,7 @@ const context = (ctx, g, style) => {
             g.attr("text-align", "center")
                 .attr("text-anchor", "middle")
                 .attr("stroke", NOTE_STROKE);
-        ctx.edges.forEach((e) => e.color && renderEdge(e, g));
+        ctx.edges.forEach((e) => e.color && renderEdge({ ...e, source: ctx.nodes.get(e.source.id) }, g));
         ctx.nodes.forEach((n) => n.color && renderNode(n, g, style));
         renderRefs(ctx, g, style);
         g.ungroup();
@@ -184,6 +183,11 @@ const note = (node, g) => {
     g.attr("fill", node.color);
     g.rect(0, 0, node.width, node.height);
     renderText((0, utils_1.splitId)(node.id), node.width, node.height, g);
+    node.schema &&
+        g.text(`{${node.schema.size}}`, node.width - 6, 6, {
+            "font-family": "monospace",
+            "font-size": "12pt",
+        });
 };
 const renderNode = (node, g, style) => {
     const dx = Math.floor(node.x - node.width / 2);

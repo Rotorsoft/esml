@@ -257,6 +257,11 @@ const note: Renderable = (node: Node, g: Graphics) => {
   g.attr("fill", node.color!);
   g.rect(0, 0, node.width!, node.height!);
   renderText(splitId(node.id), node.width!, node.height!, g);
+  node.schema &&
+    g.text(`{${node.schema.size}}`, node.width! - 6, 6, {
+      "font-family": "monospace",
+      "font-size": "12pt",
+    });
 };
 
 const renderNode = (node: Node, g: Graphics, style: Style) => {

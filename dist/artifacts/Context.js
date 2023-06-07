@@ -4,7 +4,7 @@ exports.Context = void 0;
 const types_1 = require("./types");
 exports.Context = {
     grammar: {
-        includes: { visual: "artifact", owns: true },
+        includes: { owns: true },
     },
     // resolves inter-context relationships
     rel: (source, target, root) => {

@@ -26,7 +26,24 @@ const esml = (code, scale, font = DEFAULT_FONT) => {
         const root = (0, compiler_1.compile)(statements);
         (0, graphics_1.layout)(root, style);
         const svg = (0, graphics_1.render)(root, style);
-        return { svg, width: root.width, height: root.height };
+        const nodes = [...root.nodes.values()]
+            .filter((n) => n.id !== "actors")
+            .flatMap((n) => [...n.nodes.values()]);
+        return {
+            svg,
+            width: root.width,
+            height: root.height,
+            nodes: nodes.map(({ id, visual, ctx, x, y, width, height, schema }) => ({
+                id,
+                visual,
+                ctx,
+                x,
+                y,
+                width,
+                height,
+                fields: schema ? [...schema.values()] : [],
+            })),
+        };
     }
     catch (error) {
         if (error instanceof parser_1.ParseError)

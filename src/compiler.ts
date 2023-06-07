@@ -89,6 +89,20 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     }
   };
 
+  const buildSchema = (node: Node, statement: Statement): void => {
+    statement.rels.forEach((rule, name) => {
+      if (rule.action === "requires" || rule.action === "optional") {
+        node.schema = node.schema || new Map<string, Field>();
+        const field: Field = {
+          name,
+          required: rule.action === "requires",
+          type: "string", // TODO: typings
+        };
+        node.schema?.set(name, field);
+      }
+    });
+  };
+
   // group actors and contexts in root
   const root = newContext();
   const actors = newContext("actors", true);
@@ -145,21 +159,14 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
   // connect the model!
   statements.forEach((statement, id) => {
     if (statement.type === "schema") {
-      const target = nodes.get(id)!;
-      target.schema = target.schema || new Map<string, Field>();
-      statement.rels.forEach((rule, name) => {
-        const field: Field = {
-          name,
-          required: rule.action === "requires",
-          type: "string", // TODO: typings
-        };
-        target.schema?.set(name, field);
-      });
+      const node = nodes.get(id);
+      node && buildSchema(node, statement);
     } else if (statement.type !== "context") {
       const artifact = artifacts[statement.type];
       const source = nodes.get(id)!;
-      const ctx = root.nodes.get(source.ctx!)! as ContextNode;
+      buildSchema(source, statement);
 
+      const ctx = root.nodes.get(source.ctx!)! as ContextNode;
       statement.rels.forEach((_, id) => {
         const target = nodes.get(id)!;
 

@@ -28,7 +28,7 @@ const newContext = (id = "", hidden = false) => ({
 const ROOT_ARTS = ["context", "actor"];
 const compile = (statements) => {
     const nodes = new Map();
-    const newNode = (statement, id, visual, owns) => {
+    const newNode = (statement, id, visual, owns = false) => {
         const found = nodes.get(id);
         if (found) {
             if (found.visual !== visual)
@@ -46,12 +46,11 @@ const compile = (statements) => {
         if (statement && !statement.context) {
             statement.context = ctx.id;
             const node = newNode(statement, id, statement.type, true);
-            statement.rels.forEach(({ visual, owns }, id) => {
+            statement.rels.forEach(({ type, owns }, id) => {
                 const rel = statements.get(id);
                 rel && ROOT_ARTS.includes(rel.type) && error(statement, "artifact", id); // don't rel root arts
-                visual === "artifact" &&
-                    error(statement, "artifact type", "nested context");
-                newNode(statement, id, visual, owns);
+                !type && error(statement, "artifact type", "nested context");
+                newNode(statement, id, type, owns);
             });
             ctx.nodes.set(id, node);
         }
@@ -63,6 +62,19 @@ const compile = (statements) => {
                 ctx.nodes.set(id, node);
             }
         }
+    };
+    const buildSchema = (node, statement) => {
+        statement.rels.forEach((rule, name) => {
+            if (rule.action === "requires" || rule.action === "optional") {
+                node.schema = node.schema || new Map();
+                const field = {
+                    name,
+                    required: rule.action === "requires",
+                    type: "string", // TODO: typings
+                };
+                node.schema?.set(name, field);
+            }
+        });
     };
     // group actors and contexts in root
     const root = newContext();
@@ -79,9 +91,9 @@ const compile = (statements) => {
             root.nodes.set(id, ctx);
         }
     });
-    // orphans in global context
+    // group orphans in global context
     const global = newContext("global");
-    statements.forEach((statement, id) => !statement.context && addNode(global, id));
+    statements.forEach((statement, id) => statement.type !== "schema" && !statement.context && addNode(global, id));
     nodes.forEach((node) => {
         if (!node.ctx) {
             node.ctx = global.id;
@@ -112,9 +124,14 @@ const compile = (statements) => {
     //************/
     // connect the model!
     statements.forEach((statement, id) => {
-        if (statement.type !== "context") {
+        if (statement.type === "schema") {
+            const node = nodes.get(id);
+            node && buildSchema(node, statement);
+        }
+        else if (statement.type !== "context") {
             const artifact = artifacts_1.artifacts[statement.type];
             const source = nodes.get(id);
+            buildSchema(source, statement);
             const ctx = root.nodes.get(source.ctx);
             statement.rels.forEach((_, id) => {
                 const target = nodes.get(id);

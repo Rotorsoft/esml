@@ -19,6 +19,7 @@ const Actor_1 = require("./Actor");
 const Context_1 = require("./Context");
 const Policy_1 = require("./Policy");
 const Projector_1 = require("./Projector");
+const Schema_1 = require("./Schema");
 const System_1 = require("./System");
 exports.artifacts = {
     context: Context_1.Context,
@@ -28,6 +29,7 @@ exports.artifacts = {
     policy: Policy_1.Policy,
     process: Policy_1.Policy,
     projector: Projector_1.Projector,
+    schema: Schema_1.Schema,
 };
 __exportStar(require("./types"), exports);
 //# sourceMappingURL=index.js.map

@@ -8,17 +8,17 @@ export type Style = {
     font: string;
     fontSize: number;
 };
-export declare const ArtTypes: readonly ["context", "actor", "aggregate", "system", "projector", "policy", "process"];
+export declare const ArtTypes: readonly ["context", "actor", "aggregate", "system", "projector", "policy", "process", "schema"];
 declare const Messages: readonly ["command", "event"];
-declare const Visuals: readonly ["context", "actor", "aggregate", "system", "projector", "policy", "process", "command", "event"];
-declare const Actions: readonly ["invokes", "handles", "emits", "includes", "reads"];
-export declare const Keywords: readonly ["context", "actor", "aggregate", "system", "projector", "policy", "process", "invokes", "handles", "emits", "includes", "reads"];
+declare const Visuals: readonly ["context", "actor", "aggregate", "system", "projector", "policy", "process", "schema", "command", "event"];
+declare const Actions: readonly ["invokes", "handles", "emits", "includes", "reads", "requires", "optional"];
+export declare const Keywords: readonly ["context", "actor", "aggregate", "system", "projector", "policy", "process", "schema", "invokes", "handles", "emits", "includes", "reads", "requires", "optional"];
 export type ArtType = (typeof ArtTypes)[number];
 export type Message = (typeof Messages)[number];
 export type Visual = (typeof Visuals)[number];
 export type Action = (typeof Actions)[number];
 export type Keyword = (typeof Keywords)[number];
-export type RelType = Message | "projector" | "artifact";
+export type RelType = Message | "projector" | "field";
 export declare const COLORS: {
     [key in Visual]: string;
 };
@@ -29,10 +29,17 @@ type Rel = {
     color?: string;
     arrow?: boolean;
 };
+export type Field = {
+    name: string;
+    required: boolean;
+    type: Field | "string" | "numeric";
+    size?: number;
+};
 export type Node = {
     id: string;
     visual: Visual;
     ctx?: string;
+    schema?: Map<string, Field>;
     color?: string;
     x?: number;
     y?: number;
@@ -51,8 +58,8 @@ export type ContextNode = Node & {
 };
 export declare const isContextNode: (node: Node) => node is ContextNode;
 type Rule = {
-    visual: RelType;
-    owns: boolean;
+    type?: RelType;
+    owns?: boolean;
 };
 export type Artifact = {
     grammar: {
@@ -73,7 +80,9 @@ export type Source = {
 export type Statement = {
     type: ArtType;
     source: Source;
-    rels: Map<string, Rule>;
+    rels: Map<string, Rule & {
+        action: Action;
+    }>;
     context?: string;
 };
 export {};

@@ -47,6 +47,8 @@ export interface Graphics {
         fill?: string;
         stroke?: string;
         dy?: number | string;
+        "font-family"?: string;
+        "font-size"?: number | string;
     }): void;
     rect(x: number, y: number, width: number, height: number, attrs?: {
         fill?: string;

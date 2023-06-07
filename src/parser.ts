@@ -123,7 +123,9 @@ export const parse = (code: string): Map<string, Statement> => {
         rels: new Map(),
       });
     const statement = statements.get(name)!;
-    if (statement.type !== type.token) error(statement.type, type.token);
+    type.token !== "schema" &&
+      statement.type !== type.token &&
+      error(statement.type, type.token);
     statement.source.to = source.to;
 
     let next = nextToken();
@@ -151,5 +153,6 @@ export const parse = (code: string): Map<string, Statement> => {
     else if (next.token.length) error("keyword", next.token);
   }
 
+  //console.log(statements);
   return statements;
 };

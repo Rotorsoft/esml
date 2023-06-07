@@ -20,6 +20,9 @@ class Canvas extends utils_1.EventEmitter {
         this.y = 0;
         this.w = 0;
         this.h = 0;
+        this.tooltip = document.createElement("div");
+        this.tooltip.className = "node-tooltip";
+        this.container.appendChild(this.tooltip);
         if (options) {
             this.SCALE = options.SCALE;
             this.WIDTH = options.WIDTH;
@@ -76,8 +79,8 @@ class Canvas extends utils_1.EventEmitter {
             (this.zoomOutBtn.onclick = () => this.zoomTo.apply(this, [-0.1]));
     }
     fitToContainer() {
-        const vw = this.container.clientWidth;
-        const vh = this.container.clientHeight;
+        const vw = Math.min(this.container.clientWidth, window.innerWidth);
+        const vh = Math.min(this.container.clientHeight, window.innerHeight);
         if (this.w && this.h && vw && vh) {
             // avoid NaN
             this.fitZoom(Math.min(vw / this.w, vh / this.h));
@@ -106,11 +109,60 @@ class Canvas extends utils_1.EventEmitter {
             this.emit("transformed", { x: this.x, y: this.y, zoom: this.zoom });
         }
     }
+    addNodes(nodes) {
+        const handleMouseEnter = (event) => {
+            const g = event.target;
+            const name = g.dataset.name;
+            const node = this.document.getElementById("node-" + name);
+            if (node) {
+                this.tooltip.innerHTML = node?.innerHTML;
+                this.tooltip.className = "node-tooltip-visible";
+                const { left, top, width } = g.getBoundingClientRect();
+                const x = left + (width - this.tooltip.offsetWidth) / 2;
+                const y = top - this.tooltip.offsetHeight;
+                this.tooltip.style.left = x + "px";
+                this.tooltip.style.top = y + "px";
+            }
+        };
+        const handleMouseLeave = () => {
+            this.tooltip.className = "node-tooltip";
+            this.tooltip.innerText = "";
+        };
+        this.nodes && this.container.removeChild(this.nodes);
+        this.nodes = this.document.createElement("div");
+        this.container.appendChild(this.nodes);
+        this.nodes.style.visibility = "hidden";
+        nodes &&
+            nodes
+                .filter((node) => node.fields.length)
+                .map((node) => {
+                const el = this.document.createElement("div");
+                el.id = "node-" + node.id;
+                el.innerHTML = `<h6>${node.id}</h6>
+        <table class="table table-sm">
+          ${node.fields
+                    .map((f) => {
+                    const name = f.name.length > 10 ? f.name.substring(0, 10) + "..." : f.name;
+                    const tel = f.required ? "th" : "td";
+                    return `<tr><${tel}>${name}</${tel}><td>${f.type}</td></tr>`;
+                })
+                    .join("")}
+        </table>
+        `;
+                this.nodes?.appendChild(el);
+                const g = this.document.getElementById("g-" + node.id);
+                if (g) {
+                    g.addEventListener("mouseenter", handleMouseEnter);
+                    g.addEventListener("mouseleave", handleMouseLeave);
+                }
+            });
+    }
     render(state) {
-        const { error, svg, width, height } = (0, esml_1.esml)(state.code, this.SCALE, state.font);
+        const { error, svg, width, height, nodes } = (0, esml_1.esml)(state.code, this.SCALE, state.font);
         if (error)
             return error;
         this.svg.innerHTML = svg;
+        this.addNodes(nodes);
         this.w = Math.floor(width);
         this.h = Math.floor(height);
         if (state.zoom) {

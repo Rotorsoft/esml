@@ -9,10 +9,19 @@ exports.ArtTypes = [
     "projector",
     "policy",
     "process",
+    "schema",
 ];
 const Messages = ["command", "event"];
 const Visuals = [...exports.ArtTypes, ...Messages];
-const Actions = ["invokes", "handles", "emits", "includes", "reads"];
+const Actions = [
+    "invokes",
+    "handles",
+    "emits",
+    "includes",
+    "reads",
+    "requires",
+    "optional",
+];
 exports.Keywords = [...exports.ArtTypes, ...Actions];
 exports.COLORS = {
     context: "white",
@@ -24,6 +33,7 @@ exports.COLORS = {
     process: "#c595cd",
     command: "#7adcfb",
     event: "#ffaa61",
+    schema: "transparent",
 };
 const isContextNode = (node) => "nodes" in node;
 exports.isContextNode = isContextNode;

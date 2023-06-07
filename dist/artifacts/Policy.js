@@ -4,13 +4,15 @@ exports.Policy = void 0;
 const types_1 = require("./types");
 exports.Policy = {
     grammar: {
-        handles: { visual: "event", owns: false },
-        invokes: { visual: "command", owns: false },
-        reads: { visual: "projector", owns: false },
+        handles: { type: "event" },
+        invokes: { type: "command" },
+        reads: { type: "projector" },
     },
     rel: (source, target) => target.visual === "event"
         ? {
-            source: { ...target, id: target.id + "*" },
+            source: source.ctx === target.ctx
+                ? target
+                : { ...target, id: target.id + "*" },
             target: source,
             edge: true,
             color: types_1.COLORS.event,

@@ -61,19 +61,36 @@ type Rel = {
   arrow?: boolean;
 };
 
-export type FieldType = "string" | "number" | string;
-export type Field = {
-  name: string;
-  required: boolean;
-  type: FieldType;
-  size?: number;
-};
+export const ScalarFieldTypes = [
+  "string",
+  "number",
+  "boolean",
+  "uuid",
+  "date",
+] as const;
+export type FieldType = (typeof ScalarFieldTypes)[number] | Schema;
+export class Field {
+  constructor(
+    readonly name: string,
+    readonly required: boolean,
+    readonly type: FieldType,
+    readonly size?: number
+  ) {}
+}
+export class Schema extends Map<string, Field> {
+  constructor(readonly id: string) {
+    super();
+  }
+  toString() {
+    return this.id;
+  }
+}
 
 export type Node = {
   id: string;
   visual: Visual;
   ctx?: string;
-  schema?: Map<string, Field>;
+  schema?: Schema;
   color?: string;
   x?: number;
   y?: number;

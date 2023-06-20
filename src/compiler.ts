@@ -4,11 +4,13 @@ import {
   ContextNode,
   Edge,
   Field,
+  ScalarFieldTypes,
   Node,
   Source,
   Statement,
   Visual,
   artifacts,
+  Schema,
 } from "./artifacts";
 
 export class CompilerError extends Error {
@@ -89,17 +91,21 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     }
   };
 
-  const buildSchema = (node: Node, statement: Statement): void => {
+  const schemas = new Map<string, Schema>();
+  const buildSchema = (id: string, statement: Statement, node?: Node): void => {
     statement.rels.forEach((rule, value) => {
       if (rule.schema) {
-        node.schema = node.schema || new Map<string, Field>();
-        const [name, type] = value.split(":");
-        const field: Field = {
-          name,
-          required: rule.action === "requires",
-          type: type || "string",
-        };
-        node.schema?.set(name, field);
+        let schema: Schema;
+        if (node) schema = node.schema = node.schema || new Schema(id);
+        else schema = schemas.get(id)!;
+
+        const [name, type = "string"] = value.split(":");
+        const required = rule.action === "requires";
+        const scalar = ScalarFieldTypes.includes(type as any);
+        if (!scalar) {
+          if (!schemas.has(type)) error(statement, "defined schema", type);
+          schema.set(name, new Field(name, required, schemas.get(type)!));
+        } else schema.set(name, new Field(name, required, type as any));
       }
     });
   };
@@ -119,12 +125,12 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
     }
   });
 
-  // group orphans in global context
+  // group orphans in global context, and map schemas
   const global = newContext("global");
-  statements.forEach(
-    (statement, id) =>
-      statement.type !== "schema" && !statement.context && addNode(global, id)
-  );
+  statements.forEach((statement, id) => {
+    if (statement.type === "schema") schemas.set(id, new Schema(id));
+    else if (!statement.context) addNode(global, id);
+  });
   nodes.forEach((node) => {
     if (!node.ctx) {
       node.ctx = global.id;
@@ -160,12 +166,11 @@ export const compile = (statements: Map<string, Statement>): ContextNode => {
   // connect the model!
   statements.forEach((statement, id) => {
     if (statement.type === "schema") {
-      const node = nodes.get(id);
-      node && buildSchema(node, statement);
+      buildSchema(id, statement, nodes.get(id));
     } else if (statement.type !== "context") {
       const artifact = artifacts[statement.type];
       const source = nodes.get(id)!;
-      buildSchema(source, statement);
+      buildSchema(id, statement, source);
 
       const ctx = root.nodes.get(source.ctx!)! as ContextNode;
       statement.rels.forEach((rule, id) => {

@@ -34,3 +34,13 @@ export function loadFile(filePath: string): string {
 export function executeCommand(command: string): void {
   execSync(command, { stdio: "inherit" });
 }
+
+export function decamelize(value: string): string {
+  return value
+    .replace(/([\p{Lowercase_Letter}\d])(\p{Uppercase_Letter})/gu, "$1-$2")
+    .replace(
+      /(\p{Uppercase_Letter}+)(\p{Uppercase_Letter}\p{Lowercase_Letter}+)/gu,
+      "$1-$2"
+    )
+    .toLowerCase();
+}

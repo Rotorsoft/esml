@@ -1,4 +1,4 @@
-import { Visual } from "../artifacts";
+import { Node, Schema, Visual } from "../artifacts";
 
 export interface Arguments {
   [key: string]: string;
@@ -7,6 +7,7 @@ export interface Arguments {
 export type Art = {
   name: string;
   type: Visual;
-  inputs: string[];
-  outputs: string[];
+  schema?: Schema;
+  in: Node[];
+  out: Node[];
 };

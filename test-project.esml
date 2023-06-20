@@ -72,3 +72,8 @@ aggregate Product handles AddProduct emits ProductAdded
 
 context Admin includes
 	Tenant, Agent, Product
+
+schema Ticket requires name, active:boolean, user:uuid, body:Body optional close:date, open:date
+schema Body requires id:number optional description
+schema OpenTicket requires title optional user:uuid
+schema TicketOpened requires title, user:uuid

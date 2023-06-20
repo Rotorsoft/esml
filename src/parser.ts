@@ -2,6 +2,7 @@ import {
   Action,
   ArtType,
   ArtTypes,
+  ScalarFieldTypes,
   Keywords,
   Source,
   Statement,
@@ -78,19 +79,30 @@ export const parse = (code: string): Map<string, Statement> => {
     }
   };
 
+  const Scalars = ScalarFieldTypes.join("|");
+  const ScalarRegExp = new RegExp(`^(${Scalars})`);
   const parseType = (): string | undefined => {
     skipBlanksAndComments();
+    // match scalar types
     const str = code.substring(pos.ix, pos.ix + 10);
-    const match = /^(string|number)/.exec(str);
-    if (match && match.length) {
-      const type = match[0];
+    const scalar = ScalarRegExp.exec(str);
+    if (scalar && scalar.length) {
+      const type = scalar[0];
       pos.ix += type.length;
       return type;
     }
+    // match ref to schema
+    const schema = /^[A-Z][a-zA-Z0-9]+/.exec(code.substring(pos.ix));
+    if (schema && schema.length) {
+      const type = schema[0];
+      pos.ix += type.length;
+      return type;
+    }
+
     const next = code.slice(pos.ix + 1).search(/[^a-zA-Z\d]/);
     pos.ix = next ? next + pos.ix + 1 : code.length;
     Object.assign(token_to, pos);
-    error("string|number", str);
+    error(`${Scalars} or schema`, str);
   };
 
   const nextToken = (schema = false): Token => {

@@ -2,23 +2,15 @@ import path from "node:path";
 import { ContextNode, Visual } from "../artifacts";
 import { compile } from "../compiler";
 import { parse } from "../parser";
-import { Art } from "./types";
-import { createDirectory, createFile, loadFile } from "./utils";
 import { createJestConfig, createPackageJson, createTsConfig } from "./configs";
+import { createSchemas, toName, toDefault, toDefaultEvent } from "./schemas";
 import {
   generateDockerCompose,
   generateScripts,
   generateVsCodeTasks,
 } from "./scripts";
-
-const decamelize = (value: string): string =>
-  value
-    .replace(/([\p{Lowercase_Letter}\d])(\p{Uppercase_Letter})/gu, "$1-$2")
-    .replace(
-      /(\p{Uppercase_Letter}+)(\p{Uppercase_Letter}\p{Lowercase_Letter}+)/gu,
-      "$1-$2"
-    )
-    .toLowerCase();
+import { Art } from "./types";
+import { createDirectory, createFile, decamelize, loadFile } from "./utils";
 
 function createIndexFile(filePath: string, arts: Art[]): void {
   const indexContent = `import { app, bootstrap } from "@rotorsoft/eventually";
@@ -37,7 +29,7 @@ bootstrap(async () => {
   createFile(filePath, indexContent);
 }
 
-function createSystem(projectDirectory: string, art: Art): void {
+function createAggregate(projectDirectory: string, art: Art): void {
   const content = `import { InferAggregate } from "@rotorsoft/eventually";
 import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
   
@@ -47,37 +39,27 @@ export const ${art.name} = (stream: string): InferAggregate<typeof ${
   description: "TODO: describe this artifact!",
   stream,
   schemas: ${art.name}Schemas,
-  init: () => ({}),
+  init: () => (${toDefault(art.schema)}),
   reduce: {
-${art.outputs
-  .map((name) => `    ${name}: (state, { data }) => ({ ...state, ...data })`)
+${art.out
+  .map(
+    (event) =>
+      `    ${toName(event)}: (state, { data }) => ({ ...state, ...data })`
+  )
   .join(",\n")} 
   },
   given: {
-${art.inputs.map((name) => `    ${name}: []`).join(",\n")} 
+${art.in.map((command) => `    ${command.id}: []`).join(",\n")} 
   },
   on: {
-${art.inputs
+${art.in
   .map(
-    (name) =>
-      `    ${name}: (data, state, actor) => { return Promise.resolve([]); }`
+    (command) =>
+      `    ${command.id}: (data, state, actor) => { return Promise.resolve([]); }`
   )
   .join(",\n")} 
   },
 });  
-`;
-
-  const schemas = `import { z } from "zod";
-    
-export const ${art.name}Schemas = {
-  state: z.object({}),
-  commands: {
-${art.inputs.map((name) => `    ${name}: z.object({})`).join(",\n")} 
-  },
-  events: {
-${art.outputs.map((name) => `    ${name}: z.object({})`).join(",\n")} 
-  },
-};
 `;
 
   const unitTest = `import { app, client, dispose } from "@rotorsoft/eventually";
@@ -95,9 +77,12 @@ describe("${art.name} ${art.type}", () => {
 
   it("should handle commands", async() => {
     const target = { stream: randomUUID(), actor: { id: randomUUID(), name: "actor", roles: [] } };
-${art.inputs
+${art.in
   .map(
-    (name) => `    await client().command(${art.name}, "${name}", {}, target);`
+    (command) =>
+      `    await client().command(${art.name}, "${command.id}", ${toDefault(
+        command.schema
+      )}, target);`
   )
   .join("\n")}
     const snap = await client().load(${art.name}, target.stream);
@@ -111,8 +96,62 @@ ${art.inputs
     content
   );
   createFile(
-    path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
-    schemas
+    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
+    unitTest
+  );
+}
+
+function createSystem(projectDirectory: string, art: Art): void {
+  const content = `import { InferSystem } from "@rotorsoft/eventually";
+import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
+  
+export const ${art.name} = (): InferSystem<typeof ${art.name}Schemas> => ({
+  description: "TODO: describe this artifact!",
+  stream: "${art.name}",
+  schemas: ${art.name}Schemas,
+  on: {
+${art.in
+  .map(
+    (command) =>
+      `    ${command.id}: (data, state, actor) => { return Promise.resolve([]); }`
+  )
+  .join(",\n")} 
+  },
+});  
+`;
+
+  const unitTest = `import { app, client, dispose } from "@rotorsoft/eventually";
+import { ${art.name} } from "../${art.name}.${art.type}";
+import { randomUUID } from "node:crypto";
+
+describe("${art.name} ${art.type}", () => {
+  beforeAll(() => {
+    app().with(${art.name}).build();
+  });
+
+  afterAll(async () => {
+    await dispose()();
+  });
+
+  it("should handle commands", async() => {
+    const target = { stream: randomUUID(), actor: { id: randomUUID(), name: "actor", roles: [] } };
+${art.in
+  .map(
+    (command) =>
+      `    await client().command(${art.name}, "${command.id}", ${toDefault(
+        command.schema
+      )}, target);`
+  )
+  .join("\n")}
+    const result = await client().query({ stream: "${art.name}" });
+    expect(result).toBeDefined();
+  })
+})  
+`;
+
+  createFile(
+    path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
+    content
   );
   createFile(
     path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
@@ -128,23 +167,14 @@ export const ${art.name} = (): InferPolicy<typeof ${art.name}Schemas> => ({
   description: "TODO: describe this artifact!",
   schemas: ${art.name}Schemas,
   on: {
-${art.inputs
-  .map((name) => `    ${name}: () => { return Promise.resolve(undefined); }`)
+${art.in
+  .map(
+    (event) =>
+      `    ${toName(event)}: () => { return Promise.resolve(undefined); }`
+  )
   .join(",\n")} 
   },
 });
-`;
-
-  const schemas = `import { z } from "zod";
-    
-export const ${art.name}Schemas = {
-  commands: {
-${art.outputs.map((name) => `    ${name}: z.object({})`).join(",\n")} 
-  },
-  events: {
-${art.inputs.map((name) => `    ${name}: z.object({})`).join(",\n")} 
-  },
-};
 `;
 
   const unitTest = `import { app, broker, client, dispose } from "@rotorsoft/eventually";
@@ -160,10 +190,10 @@ describe("${art.name} ${art.type}", () => {
   });
 
   it("should handle events", async() => {
-${art.inputs
+${art.in
   .map(
-    (name) =>
-      `    await client().event(${art.name}, { name: "${name}", data: {}, id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} } });`
+    (event) =>
+      `    await client().event(${art.name}, ${toDefaultEvent(event)});`
   )
   .join("\n")}
     await broker().drain();
@@ -175,10 +205,6 @@ ${art.inputs
   createFile(
     path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
     content
-  );
-  createFile(
-    path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
-    schemas
   );
   createFile(
     path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
@@ -197,36 +223,24 @@ export const ${art.name} = (): InferProcessManager<typeof ${
   }Schemas, typeof ${art.name}OutputSchema> => ({
   description: "TODO: describe this artifact!",
   schemas: ${art.name}Schemas,
-  init: () => ({}),
+  init: () => (${toDefault(art.schema)}),
   reduce: {
     TodoOutputEvents: (state, { data }) => ({ ...state, ...data }), // TODO: reduce all output events
   },
   actor: {
-${art.inputs.map((name) => `    ${name}: ({ stream }) => stream`).join(",\n")} 
+${art.in
+  .map((event) => `    ${toName(event)}: ({ stream }) => stream`)
+  .join(",\n")} 
   },
   on: {
-${art.inputs
-  .map((name) => `    ${name}: () => { return Promise.resolve(undefined); }`)
+${art.in
+  .map(
+    (event) =>
+      `    ${toName(event)}: () => { return Promise.resolve(undefined); }`
+  )
   .join(",\n")} 
   },
 });
-`;
-
-  const schemas = `import { z } from "zod";
-    
-export const ${art.name}Schemas = {
-  state: z.object({}),
-  commands: {
-${art.outputs.map((name) => `    ${name}: z.object({})`).join(",\n")} 
-  },
-  events: {
-${art.inputs.map((name) => `    ${name}: z.object({})`).join(",\n")} 
-  },
-};
-
-export const ${art.name}OutputSchema = {
-  TodoOutputEvents: z.object({}),
-};
 `;
 
   const unitTest = `import { app, broker, client, dispose } from "@rotorsoft/eventually";
@@ -242,10 +256,10 @@ describe("${art.name} ${art.type}", () => {
   });
 
   it("should handle events", async() => {
-${art.inputs
+${art.in
   .map(
-    (name) =>
-      `    await client().event(${art.name}, { name: "${name}", data: {}, id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} } });`
+    (event) =>
+      `    await client().event(${art.name}, ${toDefaultEvent(event)});`
   )
   .join("\n")}
     await broker().drain();
@@ -257,10 +271,6 @@ ${art.inputs
   createFile(
     path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
     content
-  );
-  createFile(
-    path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
-    schemas
   );
   createFile(
     path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
@@ -276,24 +286,16 @@ export const ${art.name} = (): InferProjector<typeof ${art.name}Schemas> => ({
   description: "TODO: describe this artifact!",
   schemas: ${art.name}Schemas,
   on: {
-${art.inputs
+${art.in
   .map(
-    (name) =>
-      `    ${name}: ({ stream, data }) => { return Promise.resolve({ upserts: [], deletes: [] }); }`
+    (event) =>
+      `    ${toName(
+        event
+      )}: ({ stream, data }) => { return Promise.resolve({ upserts: [], deletes: [] }); }`
   )
   .join(",\n")} 
   },
 });
-`;
-
-  const schemas = `import { z } from "zod";
-    
-export const ${art.name}Schemas = {
-  state: z.object({ id: z.string() }),
-  events: {
-${art.inputs.map((name) => `    ${name}: z.object({})`).join(",\n")} 
-  },
-};
 `;
 
   const unitTest = `import { app, broker, client, dispose } from "@rotorsoft/eventually";
@@ -309,10 +311,10 @@ describe("${art.name} ${art.type}", () => {
   });
 
   it("should handle events", async() => {
-${art.inputs
+${art.in
   .map(
-    (name) =>
-      `    await client().project(${art.name}, { name: "${name}", data: {}, id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} } });`
+    (event) =>
+      `    await client().project(${art.name}, ${toDefaultEvent(event)});`
   )
   .join("\n")}
     await broker().drain();
@@ -326,17 +328,13 @@ ${art.inputs
     content
   );
   createFile(
-    path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
-    schemas
-  );
-  createFile(
     path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
     unitTest
   );
 }
 
 const artMap: { [key in Visual]?: (filePath: string, art: Art) => void } = {
-  aggregate: createSystem,
+  aggregate: createAggregate,
   system: createSystem,
   policy: createPolicy,
   process: createProcess,
@@ -371,16 +369,20 @@ function generateContext(
         .map(([name, value]) => ({
           name,
           type: value.visual,
-          inputs: [...ctx.edges.values()]
+          schema: value.schema,
+          in: [...ctx.edges.values()]
             .filter(({ target }) => target.id === name)
-            .map(({ source }) => source.id.replace("*", "")),
-          outputs: [...ctx.edges.values()]
+            .map(({ source }) => source),
+          out: [...ctx.edges.values()]
             .filter(({ source }) => source.id === name)
-            .map(({ target }) => target.id),
+            .map(({ target }) => target),
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
     : [];
-  arts.forEach((art) => artMap[art.type]!(dir, art));
+  arts.forEach((art) => {
+    artMap[art.type]!(dir, art);
+    createSchemas(dir, art);
+  });
   createIndexFile(path.join(dir, "src/index.ts"), arts);
 }
 

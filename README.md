@@ -25,7 +25,7 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 - <projectors\> ::= <projector\> {"," <projector\>}
 - <artifacts\> ::= <artifact\> {"," <artifact\>}
 - <type\> ::= "string" | "number"
-- <field\> ::= [a-z] [a-zA-Z]+ { ":" <type\> }
+- <field\> ::= [a-z] [a-zA-Z0-9]+ { ":" <type\> }
 - <fields\> ::= <field\> {"," <field\>}
 - <actor_stmt\> ::= "actor" <actor\> { ("invokes" <commands\>) | ("reads" <projectors\>) }
 - <aggregate_stmt\> ::= "aggregate" <aggregate\> { ("handles" <commands\>) | ("emits" <events\>) }

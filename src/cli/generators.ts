@@ -1,9 +1,10 @@
+import json5 from "json5";
 import path from "node:path";
 import { ContextNode, Visual } from "../artifacts";
 import { compile } from "../compiler";
-import { parse } from "../parser";
+import { Grammar } from "../schema";
 import { createJestConfig, createPackageJson, createTsConfig } from "./configs";
-import { createSchemas, toName, toDefault, toDefaultEvent } from "./schemas";
+import { createSchemas, toDefault, toDefaultEvent, toName } from "./schemas";
 import {
   generateDockerCompose,
   generateScripts,
@@ -369,13 +370,19 @@ function generateContext(
         .map(([name, value]) => ({
           name,
           type: value.visual,
-          schema: value.schema,
+          schema: ctx.schemas.get(value.id),
           in: [...ctx.edges.values()]
             .filter(({ target }) => target.id === name)
-            .map(({ source }) => source),
+            .map(({ source }) => ({
+              ...source,
+              schema: ctx.schemas.get(source.id),
+            })),
           out: [...ctx.edges.values()]
             .filter(({ source }) => source.id === name)
-            .map(({ target }) => target),
+            .map(({ target }) => ({
+              ...target,
+              schema: ctx.schemas.get(target.id),
+            })),
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
     : [];
@@ -392,8 +399,8 @@ export function generateContexts(
 ): void {
   const esml = loadFile(path.join(process.cwd(), `${project}.esml`));
   if (esml) {
-    const statements = parse(esml);
-    const root = compile(statements);
+    const model = Grammar.parse(json5.parse(esml));
+    const root = compile(model);
     root.nodes.delete("actors");
     if (root.nodes.size === 1)
       generateContext(

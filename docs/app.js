@@ -1,87 +1,173 @@
-const sample = `## WolfDesk Ticket Service
-
-# Actors 
-actor Customer invokes 
-	OpenTicket, AddMessage, RequestTicketEscalation
-    reads Tickets
-actor AgentActor invokes 
-	AddMessage, CloseTicket
-    reads Tickets
-    
-
-# Ticket is the main aggregate
-aggregate Ticket
-handles 
-	OpenTicket, AssignTicket, AddMessage,
-	CloseTicket, RequestTicketEscalation,
-    EscalateTicket, ReassignTicket,
-    MarkMessageDelivered, AcknowledgeMessage
-emits
-	TicketOpened, TicketAssigned, MessageAdded,
-    TicketClosed, TicketEscalated, TicketReassigned,
-    MessageDelivered, MessageRead, TicketEscalationRequested,
-    TicketResolved
-
-# Policies to handle new ticket assignment and escalation
-policy Assignment handles TicketOpened 
-invokes AssignTicket, ReassignTicket
-reads Tickets, Agents
-
-policy RequestEscalation handles TicketEscalationRequested
-invokes EscalateTicket, CloseTicket
-reads Tickets, Agents
-
-# Automatically close tickets after resolution
-policy Closing handles TicketResolved invokes CloseTicket
-reads Tickets
-
-# A projection of current ticket states is used to drive policies
-projector Tickets
-handles 
-	TicketOpened, TicketAssigned, MessageAdded,
-    TicketClosed, TicketEscalated, TicketReassigned,
-    MessageDelivered, MessageRead, TicketEscalationRequested,
-    TicketResolved
-
-# Let's put all of the above in the same context
-context TicketLifecycle includes
-	Ticket, Tickets, Assignment, 
-	RequestEscalation, Closing,
-	Customer, AgentActor
-
-# We will need a messaging subdomain
-context MessagingSystem includes Messaging
-process Messaging
-	invokes MarkMessageDelivered, AcknowledgeMessage
-    handles MessageAdded
-	reads Tickets
-
-# Billing context
-system Billing
-handles BillTenant emits TenantBilled
-
-policy BillingPolicy handles TicketResolved
-invokes BillTenant, AddTenant reads Tickets, Tenants
-
-context BillingSystem includes Billing, BillingPolicy
-
-# Admin context
-aggregate Tenant handles AddTenant emits TenantAdded
-aggregate Agent handles AddAgent emits AgentAdded
-aggregate Product handles AddProduct emits ProductAdded
-
-context Admin includes
-	Tenant, Agent, Product
-
-schema OpenTicket requires id,title optional description
-schema AssignTicket requires id,agentId optional expires 
-`;
+// WolfDesk Ticket Service
+const wolfdesk = {
+  TicketLifecycle: {
+    Customer: {
+      type: "actor",
+      description: "A customer of the service",
+      reads: ["Tickets"],
+      invokes: ["OpenTicket", "AddMessage", "RequestTicketEscalation"],
+    },
+    Agent: {
+      type: "actor",
+      description: "A customer service agent",
+      reads: ["Tickets"],
+      invokes: ["AddMessage", "CloseTicket"],
+    },
+    Ticket: {
+      type: "aggregate",
+      description: "The main aggregate holding ticket core logic",
+      handles: [
+        "OpenTicket",
+        "AssignTicket",
+        "AddMessage",
+        "CloseTicket",
+        "RequestTicketEscalation",
+        "EscalateTicket",
+        "ReassignTicket",
+        "MarkMessageDelivered",
+        "AcknowledgeMessage",
+      ],
+      emits: [
+        "TicketOpened",
+        "TicketAssigned",
+        "MessageAdded",
+        "TicketClosed",
+        "TicketEscalated",
+        "TicketReassigned",
+        "MessageDelivered",
+        "MessageRead",
+        "TicketEscalationRequested",
+        "TicketResolved",
+      ],
+      schema: {
+        requires: {
+          name: "string",
+          active: "boolean",
+          user: "uuid",
+          body: "Body",
+        },
+        optional: { close: "date", open: "date" },
+      },
+    },
+    Tickets: {
+      type: "projector",
+      description: "A projection of ticket states",
+      handles: [
+        "TicketOpened",
+        "TicketAssigned",
+        "MessageAdded",
+        "TicketClosed",
+        "TicketEscalated",
+        "TicketReassigned",
+        "MessageDelivered",
+        "MessageRead",
+        "TicketEscalationRequested",
+        "TicketResolved",
+      ],
+      schema: {
+        requires: {
+          id: "uuid",
+          created: "date",
+          active: "boolean",
+        },
+        optional: { address: "Address" },
+      },
+    },
+    Assignment: {
+      type: "policy",
+      description: "Assigns tickets to agents after opening",
+      handles: ["TicketOpened"],
+      reads: ["Tickets", "Admin.Agents"],
+      invokes: ["AssignTicket", "ReassignTicket"],
+    },
+    RequestEscalation: {
+      type: "policy",
+      description: "Handles ticket escalation requests",
+      handles: ["TicketEscalationRequested"],
+      reads: ["Tickets", "Admin.Agents"],
+      invokes: ["EscalateTicket", "CloseTicket"],
+    },
+    Closing: {
+      type: "policy",
+      description: "Closes tickets upon resolution",
+      handles: ["TicketResolved"],
+      reads: ["Tickets"],
+      invokes: ["CloseTicket"],
+    },
+    Body: {
+      type: "schema",
+      requires: { id: "number" },
+      optional: { description: "string" },
+    },
+    Address: {
+      type: "schema",
+      requires: { street: "string" },
+    },
+    OpenTicket: {
+      type: "schema",
+      description: "Command to open a new ticket",
+      requires: { title: "string" },
+      optional: { user: "uuid", description: "string" },
+    },
+    TicketOpened: {
+      type: "schema",
+      description: "Event recording when a ticket was opened",
+      requires: { title: "string", user: "uuid" },
+    },
+    AssignTicket: {
+      type: "schema",
+      requires: { id: "string", agentId: "string" },
+      optional: { expires: "number" },
+    },
+  },
+  Messaging: {
+    Messaging: {
+      type: "process",
+      description: "Delivers messages to recipients",
+      handles: ["TicketLifecycle.MessageAdded"],
+      reads: ["TicketLifecycle.Tickets"],
+      invokes: [
+        "TicketLifecycle.MarkMessageDelivered",
+        "TicketLifecycle.AcknowledgeMessage",
+      ],
+    },
+  },
+  Billing: {
+    Billing: {
+      type: "system",
+      handles: ["BillTenant"],
+      emits: ["TenantBilled"],
+    },
+    BillingPolicy: {
+      type: "policy",
+      handles: ["TicketLifecycle.TicketResolved"],
+      reads: ["TicketLifecycle.Tickets", "Admin.Tenants"],
+      invokes: ["BillTenant", "AddTenant"],
+    },
+  },
+  Admin: {
+    Tenant: {
+      type: "aggregate",
+      handles: ["AddTenant"],
+      emits: ["TenantAdded"],
+    },
+    Agent: { type: "aggregate", handles: ["AddAgent"], emits: ["AgentAdded"] },
+    Product: {
+      type: "aggregate",
+      handles: ["AddProduct"],
+      emits: ["ProductAdded"],
+    },
+    Tenants: { type: "projector", handles: ["TenantAdded"] },
+    Agents: { type: "projector", handles: ["AgentAdded"] },
+    Products: { type: "projector", handles: ["ProductAdded"] },
+  },
+};
 
 const SRC_KEY = "ESML-Cache";
 const POS_KEY = "ESML_Position";
 
 const Store = () => {
-  let src = { code: sample, font: "Inconsolata" },
+  let src = { code: JSON.stringify(wolfdesk, null, 2), font: "Inconsolata" },
     pos = { x: 0, y: 0, zoom: 1 };
 
   const load = () => {
@@ -113,30 +199,11 @@ const Controller = (canvas, bus) => {
   const codemirror = document.getElementById("codemirror");
   const parse_err = document.getElementById("parse-error");
   const textarea = document.getElementById("code");
-  const keywords = new RegExp(`(?:${esml.Keywords.join("|")})`);
-
-  CodeMirror.defineMode("esml", function () {
-    return {
-      startState: function () {
-        return { inSymbol: false };
-      },
-      token: function (stream) {
-        if (stream.sol()) stream.eatSpace();
-        if (stream.eol()) return null;
-        if (stream.match("#")) {
-          stream.skipToEnd();
-          return "comment";
-        }
-        if (stream.match(keywords)) return "keyword";
-        stream.next();
-        return null;
-      },
-    };
-  });
 
   const editor = CodeMirror.fromTextArea(textarea, {
-    mode: "esml",
+    mode: { name: "javascript", json: true },
     lineNumbers: true,
+    tabSize: 2,
     theme: "default",
   });
 

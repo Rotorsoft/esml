@@ -1,7 +1,21 @@
+import json5 from "json5";
+import { ZodError } from "zod";
 import { ContextNode, Field, Style, Visual } from "./artifacts";
-import { CompilerError, compile } from "./compiler";
+import { compile } from "./compiler";
 import { layout, render } from "./graphics";
-import { ParseError, parse } from "./parser";
+import { Grammar } from "./schema";
+
+export class Json5Error extends Error {
+  constructor(
+    readonly message: string,
+    readonly source: {
+      from: { line: number; col: number };
+      to: { line: number; col: number };
+    }
+  ) {
+    super(message);
+  }
+}
 
 type Font = "monospace" | "inconsolata" | "caveat" | "handlee";
 const FONTS: { [key in Font]: string } = {
@@ -21,6 +35,7 @@ export type Node = {
   width: number;
   height: number;
   fields: Field[];
+  description?: string;
 };
 
 export const esml = (
@@ -45,8 +60,8 @@ export const esml = (
   };
 
   try {
-    const statements = parse(code);
-    const root = compile(statements);
+    const model = Grammar.parse(json5.parse(code));
+    const root = compile(model);
     layout(root, style);
     const svg = render(root, style);
     const nodes = [...root.nodes.values()]
@@ -57,22 +72,38 @@ export const esml = (
       width: root.width,
       height: root.height,
       nodes: nodes.map(
-        ({ id, visual, ctx, x, y, width, height, schema }) =>
-          ({
+        ({ id, visual, ctx, x, y, width, height, description }) => {
+          const schema = ctx.schemas.get(id);
+          return {
             id,
             visual,
-            ctx,
+            ctx: ctx.id,
             x,
             y,
             width,
             height,
             fields: schema ? [...schema.values()] : [],
-          } as Node)
+            description: description ?? schema?.description,
+          } as Node;
+        }
       ),
     };
   } catch (error: any) {
-    if (error instanceof ParseError) return { error };
-    if (error instanceof CompilerError) return { error };
+    if ("lineNumber" in error && "columnNumber" in error)
+      return {
+        error: new Json5Error(error.message, {
+          from: { line: error.lineNumber - 1, col: 0 },
+          to: { line: error.lineNumber - 1, col: error.columnNumber },
+        }),
+      };
+    if (error instanceof ZodError)
+      return {
+        error: Error(
+          error.issues
+            .map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join("\n")
+        ),
+      };
     if (error instanceof Error) {
       const message = error.stack!.split("\n").slice(0, 2).join(" ");
       return { error: Error(message) };

@@ -9,9 +9,10 @@
   "main": "dist/index",
   "types": "dist/index",
   "scripts": {
+    "gen-schema": "npx ts-node ./src/cli/gen-schema.ts >> ./docs/esml.json",
     "start": "rollup -c --watch --bundleConfigAsCjs rollup.config.js",
     "test": "npx jest",
-    "build": "rm -rf dist && npm install && npx tsc",
+    "build": "rm -rf dist && npm install && npx tsc && npm run gen-schema",
     "release": "npx semantic-release"
   },
   "files": [
@@ -22,7 +23,9 @@
     "create-eventually-app": "dist/cli/create-eventually-app.js"
   },
   "dependencies": {
-    "dagre": "^0.8.5"
+    "dagre": "^0.8.5",
+    "json5": "^2.2.3",
+    "zod": "^3.21.4"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.0",
@@ -42,6 +45,7 @@
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
     "tslib": "^2.4.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "zod-to-json-schema": "^3.21.4"
   }
 }

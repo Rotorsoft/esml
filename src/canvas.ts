@@ -183,9 +183,9 @@ export class Canvas extends EventEmitter {
       if (node) {
         this.tooltip.innerHTML = node?.innerHTML;
         this.tooltip.className = "node-tooltip-visible";
-        const { left, top, width } = g.getBoundingClientRect();
-        const x = left + (width - this.tooltip.offsetWidth) / 2;
-        const y = top - this.tooltip.offsetHeight;
+        //const { left, top, width } = g.getBoundingClientRect();
+        const x = event.x; // left + (width - this.tooltip.offsetWidth) / 2;
+        const y = event.y; // top - this.tooltip.offsetHeight;
         this.tooltip.style.left = x + "px";
         this.tooltip.style.top = y + "px";
       }
@@ -200,11 +200,12 @@ export class Canvas extends EventEmitter {
     this.nodes.style.visibility = "hidden";
     nodes &&
       nodes
-        .filter((node) => node.fields.length)
+        .filter((node) => node.fields.length || node.description)
         .map((node) => {
           const el = this.document.createElement("div");
           el.id = "node-" + node.id;
-          el.innerHTML = `<h6>${node.id}</h6>
+          el.innerHTML = `<div class="name">${node.id}</div>
+        <div class="description">${node.description || ""}</div>
         <table class="table table-sm">
           ${node.fields
             .slice(0, 20)

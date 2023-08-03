@@ -39,8 +39,7 @@
       }
       .CodeMirror {
         height: 100%;
-        font-size: 14px;
-        font-family: monospace;
+        font-size: 12px;
         background-color: transparent;
       }
       .cm-error {
@@ -50,7 +49,6 @@
       }
       #parse-error {
         position: fixed;
-        font-family: monospace;
         font-size: 12px;
         background-color: rgb(147, 29, 18);
         color: rgb(237, 224, 37);
@@ -59,7 +57,6 @@
         z-index: 501;
       }
       #coords {
-        font-family: "Inconsolata";
         font-size: 10px;
         color: #c5bfbf;
       }
@@ -127,10 +124,23 @@
         max-height: 600px;
         overflow: auto;
         font-family: monospace;
-        font-size: 8px;
+      }
+      .node-tooltip-visible .name {
+        font-size: 14px;
+        text-align: center;
+        padding: 2px;
+      }
+      .node-tooltip-visible .description {
+        font-size: 9px;
+        font-style: italic;
+        padding-bottom: 5px;
       }
       .node-tooltip {
         visibility: hidden;
+      }
+      .table {
+        font-family: monospace;
+        font-size: 10px;
       }
     </style>
     <script
@@ -186,6 +196,11 @@
     </div>
     <div class="col-12" id="parse-error" style="display: none"></div>
     <div class="overlay-panel" id="codemirror">
+      <div style="font-size: 12px; position: fixed; top: -15px; right: 40px">
+        <a href="#" onclick='window.open("esml.json");return false;'
+          >JSON Schema ↗</a
+        >
+      </div>
       <textarea id="code"></textarea>
     </div>
     <div class="w-100 h-100 m-0 p-0" id="container"></div>

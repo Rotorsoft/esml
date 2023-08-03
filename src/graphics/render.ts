@@ -164,7 +164,7 @@ const renderRef = (
   g: Graphics
 ) => {
   renderSimpleRef(target, x, y, w, h, g);
-  const actorRefs = ctx.actors?.refs.get(target.id);
+  const actorRefs = ctx.refs.get(target.id);
   const hw = Math.ceil(w / 2);
   const hh = Math.ceil(h / 2);
   actorRefs &&
@@ -215,6 +215,7 @@ const renderCommandRefs = (
 const renderRefs = (ctx: ContextNode, g: Graphics, style: Style) => {
   ctx.refs.forEach((targets, sourceId) => {
     const source = ctx.nodes.get(sourceId)!;
+    if (source.visual === "actor") return; // don't render actors as nodes
     const x = Math.floor(source.x! - source.width! / 2 - style.scale * 0.2);
     const y = Math.floor(source.y! + source.height! * 0.4);
     const w = Math.floor(style.scale);
@@ -257,9 +258,9 @@ const note: Renderable = (node: Node, g: Graphics) => {
   g.attr("fill", node.color!);
   g.rect(0, 0, node.width!, node.height!);
   renderText(splitId(node.id), node.width!, node.height!, g);
-  node.schema &&
-    g.text(`{${node.schema.size}}`, node.width! - 6, 6, {
-      "font-family": "monospace",
+  const schema = node.ctx.schemas.get(node.id);
+  schema &&
+    g.text(`{${schema.size}}`, node.width! - 6, 6, {
       "font-size": "6pt",
       fill: NOTE_STROKE,
     });
@@ -268,10 +269,17 @@ const note: Renderable = (node: Node, g: Graphics) => {
 const renderNode = (node: Node, g: Graphics, style: Style) => {
   const dx = Math.floor(node.x! - node.width! / 2);
   const dy = Math.floor(node.y! - node.height! / 2);
-  const render = node.visual === "context" ? context : note;
-  g.group(node.id, { class: node.visual, dx, dy });
-  render(node, g, style);
-  g.ungroup();
+  const render =
+    node.visual === "context"
+      ? context
+      : node.visual !== "actor"
+      ? note
+      : undefined; // don't render actors as nodes
+  if (render) {
+    g.group(node.id, { class: node.visual, dx, dy });
+    render(node, g, style);
+    g.ungroup();
+  }
 };
 
 export const render = (root: ContextNode, style: Style): string => {

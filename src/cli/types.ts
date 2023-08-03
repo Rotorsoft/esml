@@ -8,6 +8,6 @@ export type Art = {
   name: string;
   type: Visual;
   schema?: Schema;
-  in: Node[];
-  out: Node[];
+  in: Array<Node & { schema?: Schema }>;
+  out: Array<Node & { schema?: Schema }>;
 };

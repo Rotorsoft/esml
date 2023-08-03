@@ -22,7 +22,7 @@ export const ArtTypes = [
 ] as const;
 const Messages = ["command", "event"] as const;
 const Visuals = [...ArtTypes, ...Messages] as const;
-const Actions = [
+export const Actions = [
   "invokes",
   "handles",
   "emits",
@@ -32,13 +32,14 @@ const Actions = [
   "optional",
 ] as const;
 export const Keywords = [...ArtTypes, ...Actions] as const;
+export const RelTypes = [...Messages, "projector", "field"] as const;
 
 export type ArtType = (typeof ArtTypes)[number];
 export type Message = (typeof Messages)[number];
 export type Visual = (typeof Visuals)[number];
 export type Action = (typeof Actions)[number];
 export type Keyword = (typeof Keywords)[number];
-export type RelType = Message | "projector" | "field";
+export type RelType = (typeof RelTypes)[number];
 
 export const COLORS: { [key in Visual]: string } = {
   context: "white",
@@ -78,7 +79,7 @@ export class Field {
   ) {}
 }
 export class Schema extends Map<string, Field> {
-  constructor(readonly id: string) {
+  constructor(readonly id: string, readonly description?: string) {
     super();
   }
   toString() {
@@ -89,8 +90,8 @@ export class Schema extends Map<string, Field> {
 export type Node = {
   id: string;
   visual: Visual;
-  ctx?: string;
-  schema?: Schema;
+  ctx: ContextNode;
+  description?: string;
   color?: string;
   x?: number;
   y?: number;
@@ -107,27 +108,14 @@ export type ContextNode = Node & {
   nodes: Map<string, Node>;
   edges: Map<string, Edge>;
   refs: Map<string, Set<Node>>;
-  actors?: ContextNode;
+  schemas: Map<string, Schema>;
 };
 
 export const isContextNode = (node: Node): node is ContextNode =>
   "nodes" in node;
 
-type Rule = { type?: RelType; owns?: boolean };
-
-export type Artifact = {
-  grammar: { [key in Action]?: Rule };
-  rel: (source: Node, target: Node, root: ContextNode) => Rel | undefined;
-};
-
-export type Source = {
-  readonly from: { readonly line: number; readonly col: number };
-  to: { line: number; col: number };
-};
-
-export type Statement = {
-  type: ArtType;
-  source: Source;
-  rels: Map<string, Rule & { action: Action; schema: boolean }>;
-  context?: string;
-};
+export type Artifact = (
+  source: Node,
+  target: Node,
+  root: ContextNode
+) => Rel | undefined;

@@ -1,210 +1,197 @@
 import {
-  ArtType,
   COLORS,
-  ContextNode,
-  Edge,
   Field,
   ScalarFieldTypes,
-  Node,
-  Source,
-  Statement,
-  Visual,
-  artifacts,
   Schema,
+  artifacts,
+  type Action,
+  type ArtType,
+  type ContextNode,
+  type Edge,
+  type Node,
+  type Visual,
 } from "./artifacts";
+import * as schema from "./schema";
 
-export class CompilerError extends Error {
-  constructor(
-    readonly source: Source,
-    readonly expected: string,
-    readonly actual: string
-  ) {
-    super(
-      `Compiler error at line ${source.from.line}: Expected ${expected} but got ${actual}`
-    );
-  }
-}
-
-const error = (
-  statement: Statement,
-  expected: string,
-  actual: string
-): never => {
-  throw new CompilerError(statement.source, expected, actual);
+const rules: Partial<Record<ArtType, Partial<Record<Action, Visual>>>> = {
+  actor: {
+    invokes: "command",
+    reads: "projector",
+  },
+  system: {
+    handles: "command",
+    emits: "event",
+  },
+  aggregate: {
+    handles: "command",
+    emits: "event",
+  },
+  policy: {
+    handles: "event",
+    invokes: "command",
+    reads: "projector",
+  },
+  process: {
+    handles: "event",
+    invokes: "command",
+    reads: "projector",
+  },
+  projector: { handles: "event" },
 };
 
-const newContext = (id = "", hidden = false): ContextNode => ({
+const newContext = (
+  parent?: ContextNode,
+  id = "",
+  hidden = false
+): ContextNode => ({
   id,
   visual: "context",
-  ctx: "root",
+  ctx: parent ?? ({} as ContextNode),
   color: hidden ? undefined : COLORS.context,
   nodes: new Map(),
   edges: new Map(),
   refs: new Map(),
+  schemas: new Map(),
   x: 0,
   y: 0,
 });
 
-const ROOT_ARTS: Array<ArtType> = ["context", "actor"];
+const addSchema = (
+  ctx: ContextNode,
+  id: string,
+  { requires, optional, description }: schema.Schema
+) => {
+  const schema = ctx.schemas.get(id) ?? new Schema(id, description);
+  ctx.schemas.set(id, schema);
 
-export const compile = (statements: Map<string, Statement>): ContextNode => {
-  const nodes = new Map<string, Node>();
+  const append = (name: string, type: string, required: boolean) => {
+    const scalar = ScalarFieldTypes.includes(type as any);
+    if (!scalar) {
+      if (!ctx.schemas.has(type)) ctx.schemas.set(type, new Schema(type));
+      schema.set(name, new Field(name, required, ctx.schemas.get(type)!));
+    } else schema.set(name, new Field(name, required, type as any));
+  };
 
-  const newNode = (
-    statement: Statement,
-    id: string,
-    visual: Visual,
-    owns = false
-  ): Node => {
-    const found = nodes.get(id);
-    if (found) {
-      if (found.visual !== visual)
-        error(statement, `${id} found as ${found.visual}`, visual);
-      !found.ctx && owns && (found.ctx = statement.context);
-      return found;
+  requires &&
+    Object.entries(requires).forEach(([name, type]) =>
+      append(name, type, true)
+    );
+
+  optional &&
+    Object.entries(optional).forEach(([name, type]) =>
+      append(name, type, false)
+    );
+};
+
+const addBaseSchema = (ctx: ContextNode, id: string, base: string) => {
+  const schema = ctx.schemas.get(id);
+  const baseSchema = ctx.schemas.get(base);
+  if (schema && baseSchema) {
+    baseSchema.forEach(
+      (value, key) => !schema.has(key) && schema.set(key, value)
+    );
+  }
+};
+
+export const compile = (model: schema.Grammar): ContextNode => {
+  const root = newContext();
+
+  const getNode = (ctx: ContextNode, id: string, visual: Visual): Node => {
+    // resolve [Context.]Target
+    const [a, b] = id.split(".");
+    if (b) {
+      ctx = root.nodes.get(a) as ContextNode;
+      if (!ctx) {
+        ctx = newContext(root, a);
+        root.nodes.set(a, ctx);
+      }
+      id = b;
     }
-    const node: Node = { id, visual, color: COLORS[visual] };
-    owns && (node.ctx = statement.context);
-    nodes.set(id, node);
+    !ctx.nodes.has(id) &&
+      ctx.nodes.set(id, { id, visual, color: COLORS[visual], ctx });
+    const node = ctx.nodes.get(id)!;
     return node;
   };
 
-  const addNode = (ctx: ContextNode, id: string): void => {
-    const statement = statements.get(id);
-    if (statement && !statement.context) {
-      statement.context = ctx.id;
-      const node = newNode(statement, id, statement.type, true);
-      statement.rels.forEach(({ type, owns }, id) => {
-        const rel = statements.get(id);
-        rel && ROOT_ARTS.includes(rel.type) && error(statement, "artifact", id); // don't rel root arts
-        !type && error(statement, "artifact type", "nested context");
-        newNode(statement, id, type as Visual, owns);
-      });
-      ctx.nodes.set(id, node);
-    } else {
-      // context including orphan statements
-      const node = nodes.get(id);
-      if (node && !node.ctx) {
-        node.ctx = ctx.id;
-        ctx.nodes.set(id, node);
-      }
-    }
-  };
-
-  const schemas = new Map<string, Schema>();
-  const buildSchema = (id: string, statement: Statement, node?: Node): void => {
-    statement.rels.forEach((rule, value) => {
-      if (rule.schema) {
-        let schema: Schema;
-        if (node) schema = node.schema = node.schema || new Schema(id);
-        else schema = schemas.get(id)!;
-
-        const [name, type = "string"] = value.split(":");
-        const required = rule.action === "requires";
-        const scalar = ScalarFieldTypes.includes(type as any);
-        if (!scalar) {
-          if (!schemas.has(type)) error(statement, "defined schema", type);
-          schema.set(name, new Field(name, required, schemas.get(type)!));
-        } else schema.set(name, new Field(name, required, type as any));
-      }
-    });
-  };
-
-  // group actors and contexts in root
-  const root = newContext();
-  const actors = newContext("actors", true);
-  root.nodes.set(actors.id, actors);
-  statements.forEach((statement, id) => {
-    if (statement.type === "actor") addNode(actors, id);
-    else if (statement.type === "context") {
-      const ctx = newContext(id);
-      ctx.actors = actors;
-      statement.context = ctx.ctx;
-      statement.rels.forEach((_, id) => addNode(ctx, id));
-      root.nodes.set(id, ctx);
-    }
-  });
-
-  // group orphans in global context, and map schemas
-  const global = newContext("global");
-  statements.forEach((statement, id) => {
-    if (statement.type === "schema") schemas.set(id, new Schema(id));
-    else if (!statement.context) addNode(global, id);
-  });
-  nodes.forEach((node) => {
-    if (!node.ctx) {
-      node.ctx = global.id;
-      global.nodes.set(node.id, node);
-    }
-  });
-  global.nodes.size && root.nodes.set(global.id, global);
-
-  //************/
-  // debug!
-  //************/
-  // [...nodes.values()]
-  //   .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-  //   .forEach((n) => console.log(n));
-
-  // console.log(
-  //   [...statements.entries()].map(
-  //     ([id, s]) =>
-  //       `[${pad(s.source.from.line, 3)}:${pad(s.source.from.col, 3)} - ${pad(
-  //         s.source.to.line,
-  //         3
-  //       )}:${pad(s.source.to.col, 3)}] ${s.type} ${id} => ${[
-  //         ...s.rels.entries(),
-  //       ]
-  //         .map(([k, { visual }]) => `${visual} ${k}`)
-  //         .join(",")}`
-  //   )
-  // );
-
-  // console.log(actors);
-  //************/
-
-  // connect the model!
-  statements.forEach((statement, id) => {
-    if (statement.type === "schema") {
-      buildSchema(id, statement, nodes.get(id));
-    } else if (statement.type !== "context") {
-      const artifact = artifacts[statement.type];
-      const source = nodes.get(id)!;
-      buildSchema(id, statement, source);
-
-      const ctx = root.nodes.get(source.ctx!)! as ContextNode;
-      statement.rels.forEach((rule, id) => {
-        if (!rule.schema) {
-          const target = nodes.get(id)!;
-
-          // connect contexts
-          if (ctx.color && source.ctx !== target.ctx) {
-            const edge = artifacts.context.rel(source, target, root) as Edge;
-            if (edge) {
-              const key = `${edge.source.id}->${edge.target.id}-${
-                edge.color || ""
-              }`;
-              !root.edges.has(key) && root.edges.set(key, edge);
-            }
-          }
-
-          // connect visuals in context
-          const rel = artifact.rel(source, target, root);
-          if (rel) {
-            if (rel.edge) {
-              ctx.edges.set(`${rel.source.id}->${rel.target.id}`, rel);
-              ctx.nodes.set(rel.source.id, rel.source);
-              ctx.nodes.set(rel.target.id, rel.target);
-            } else {
-              const src_ctx = root.nodes.get(rel.source.ctx!)! as ContextNode;
-              !src_ctx.refs.has(rel.source.id) &&
-                src_ctx.refs.set(rel.source.id, new Set());
-              src_ctx.refs.get(rel.source.id)?.add(rel.target);
-            }
-          }
+  const addStmt = (
+    ctx: ContextNode,
+    id: string,
+    statement: schema.Statement
+  ): void => {
+    if (statement.type === "schema") addSchema(ctx, id, statement);
+    else {
+      const node = getNode(ctx, id, statement.type);
+      node.description = statement.description;
+      if ("schema" in statement) addSchema(ctx, id, statement.schema!);
+      Object.entries(statement).forEach(([action, list]) => {
+        if (Array.isArray(list)) {
+          const visual = rules[statement.type]![action as Action];
+          visual && list.forEach((rel) => getNode(ctx, rel, visual));
         }
       });
     }
+  };
+
+  Object.entries(model).forEach(([id, context]) => {
+    const ctx = newContext(root, id);
+    root.nodes.set(id, ctx);
+    Object.entries(context).forEach(([id, statement]) =>
+      addStmt(ctx, id, statement)
+    );
+  });
+
+  // connect the model!
+  Object.entries(model).forEach(([id, context]) => {
+    const ctx = root.nodes.get(id) as ContextNode;
+    Object.entries(context).forEach(([id, statement]) => {
+      const artifact = artifacts[statement.type];
+      const source = ctx.nodes.get(id)!;
+
+      // connect base and value objects in schema
+      if (statement.type === "schema" && statement.base)
+        addBaseSchema(ctx, id, statement.base);
+      if ("schema" in statement && statement.schema?.base)
+        addBaseSchema(ctx, id, statement.schema.base);
+
+      Object.entries(statement).forEach(([action, list]) => {
+        Array.isArray(list) &&
+          list.forEach((id: string) => {
+            const target = getNode(
+              ctx,
+              id,
+              rules[statement.type]![action as Action]!
+            );
+
+            // connect contexts
+            if (ctx.color && source.ctx !== target.ctx) {
+              const edge = artifacts.context(source, target, root) as Edge;
+              if (edge) {
+                const key = `${edge.source.id}->${edge.target.id}-${
+                  edge.color || ""
+                }`;
+                !root.edges.has(key) && root.edges.set(key, edge);
+              }
+            }
+
+            // connect visuals in context
+            const rel = artifact(source, target, root);
+            if (rel) {
+              if (rel.edge) {
+                ctx.edges.set(`${rel.source.id}->${rel.target.id}`, rel);
+                ctx.nodes.set(rel.source.id, rel.source);
+                ctx.nodes.set(rel.target.id, rel.target);
+              } else {
+                const src_ctx = root.nodes.get(
+                  rel.source.ctx.id
+                )! as ContextNode;
+                !src_ctx.refs.has(rel.source.id) &&
+                  src_ctx.refs.set(rel.source.id, new Set());
+                src_ctx.refs.get(rel.source.id)?.add(rel.target);
+              }
+            }
+          });
+      });
+    });
   });
 
   return root;

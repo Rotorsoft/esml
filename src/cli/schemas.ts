@@ -73,7 +73,7 @@ export function toDefaultEvent(event: Node): string {
   return `{ name: "${toName(
     event
   )}", id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} }, data: ${toDefault(
-    event.schema
+    event.ctx.schemas.get(event.id)
   )} }`;
 }
 
@@ -81,10 +81,14 @@ function toSchema(art: Art): string | undefined {
   const state = art.schema && toZod(art.schema, 2);
   const inputs =
     art.in &&
-    art.in.map((v) => `    ${toName(v)}: ${toZod(v.schema)}`).join(",\n");
+    art.in
+      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.id))}`)
+      .join(",\n");
   const outputs =
     art.out &&
-    art.out.map((v) => `    ${toName(v)}: ${toZod(v.schema)}`).join(",\n");
+    art.out
+      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.id))}`)
+      .join(",\n");
 
   switch (art.type) {
     case "system":
@@ -138,8 +142,8 @@ export function createSchemas(projectDirectory: string, art: Art): void {
   const refschemas: string[] = [];
   [
     art.schema,
-    ...art.in?.map((v) => v.schema),
-    ...art.out?.map((v) => v.schema),
+    ...art.in?.map((v) => v.ctx.schemas.get(v.id)),
+    ...art.out?.map((v) => v.ctx.schemas.get(v.id)),
   ]
     .filter(Boolean)
     .forEach((sch) => {

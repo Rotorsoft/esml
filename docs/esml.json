@@ -496,3 +496,252 @@
   },
   "$schema": "http://json-schema.org/draft-07/schema#"
 }
+{
+  "$ref": "#/definitions/esml",
+  "definitions": {
+    "esml": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "schema"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "base": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Za-z0-9]+$"
+                },
+                "requires": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "uuid",
+                          "date"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Za-z0-9]+$"
+                      }
+                    ]
+                  },
+                  "propertyNames": {
+                    "pattern": "^[a-z][A-Za-z0-9]+$"
+                  },
+                  "description": "A map of field names and types (scalar or other schemas)"
+                },
+                "optional": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/requires",
+                  "description": "A map of field names and types (scalar or other schemas)"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false,
+              "description": "A schema with optional base schema, required, and optional fields"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "actor"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "invokes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^([A-Z][A-Za-z0-9]+)(\\.[A-Z][A-Za-z0-9]*){0,1}$"
+                  },
+                  "description": "A list of references to internal or external artifacts or messages"
+                },
+                "reads": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false,
+              "description": "Actor artifact, can read projections and invoke commands"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "system"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "handles": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "emits": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false,
+              "description": "System artifact, can handle commands and emit events"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "aggregate"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "handles": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "emits": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "base": {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Za-z0-9]+$"
+                    },
+                    "requires": {
+                      "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/requires",
+                      "description": "A map of field names and types (scalar or other schemas)"
+                    },
+                    "optional": {
+                      "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/requires",
+                      "description": "A map of field names and types (scalar or other schemas)"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "The schema of the artifact's state"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false,
+              "description": "Aggregate artifact, can handle commands and emit events, with a state"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "policy"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "handles": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "invokes": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "reads": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false,
+              "description": "Policy artifact, can handle (react to) events, read projections, and invoke commands"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "process"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "handles": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "invokes": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "reads": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "schema": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/3/properties/schema",
+                  "description": "The schema of the artifact's state"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false,
+              "description": "Process manager artifact, can handle (react to) events, read projections, and invoke commands, with a state"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "projector"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "handles": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/1/properties/invokes"
+                },
+                "schema": {
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/3/properties/schema",
+                  "description": "The schema of the artifact's state"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false,
+              "description": "Projector artifact, can handle (project) events into a state (projection)"
+            }
+          ]
+        },
+        "propertyNames": {
+          "pattern": "^[A-Z][A-Za-z0-9]+$"
+        }
+      },
+      "propertyNames": {
+        "pattern": "^[A-Z][A-Za-z0-9]+$"
+      },
+      "description": "The model is a map of bounded contexts with internal artifacts"
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

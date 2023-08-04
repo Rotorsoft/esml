@@ -1,0 +1,171 @@
+// WolfDesk Ticket System
+{
+  // Core Ticket Context
+  TicketLifecycle: {
+    Customer: {
+      type: "actor",
+      description: "A customer of the service",
+      reads: ["Tickets"],
+      invokes: ["OpenTicket", "AddMessage", "RequestTicketEscalation"],
+    },
+    Agent: {
+      type: "actor",
+      description: "A customer service agent",
+      reads: ["Tickets"],
+      invokes: ["AddMessage", "CloseTicket"],
+    },
+    Ticket: {
+      type: "aggregate",
+      description: "The main aggregate holding ticket core logic",
+      handles: [
+        "OpenTicket",
+        "AssignTicket",
+        "AddMessage",
+        "CloseTicket",
+        "RequestTicketEscalation",
+        "EscalateTicket",
+        "ReassignTicket",
+        "MarkMessageDelivered",
+        "AcknowledgeMessage",
+      ],
+      emits: [
+        "TicketOpened",
+        "TicketAssigned",
+        "MessageAdded",
+        "TicketClosed",
+        "TicketEscalated",
+        "TicketReassigned",
+        "MessageDelivered",
+        "MessageRead",
+        "TicketEscalationRequested",
+        "TicketResolved",
+      ],
+      schema: {
+        requires: {
+          name: "string",
+          active: "boolean",
+          user: "uuid",
+          body: "Body",
+        },
+        optional: { close: "date", open: "date" },
+      },
+    },
+    Tickets: {
+      type: "projector",
+      description: "A projection of ticket states",
+      handles: [
+        "TicketOpened",
+        "TicketAssigned",
+        "MessageAdded",
+        "TicketClosed",
+        "TicketEscalated",
+        "TicketReassigned",
+        "MessageDelivered",
+        "MessageRead",
+        "TicketEscalationRequested",
+        "TicketResolved",
+      ],
+      schema: {
+        requires: {
+          id: "uuid",
+          created: "date",
+          active: "boolean",
+        },
+        optional: { address: "Address" },
+      },
+    },
+    Assignment: {
+      type: "policy",
+      description: "Assigns tickets to agents after opening",
+      handles: ["TicketOpened"],
+      reads: ["Tickets", "Admin.Agents"],
+      invokes: ["AssignTicket", "ReassignTicket"],
+    },
+    RequestEscalation: {
+      type: "policy",
+      description: "Handles ticket escalation requests",
+      handles: ["TicketEscalationRequested"],
+      reads: ["Tickets", "Admin.Agents"],
+      invokes: ["EscalateTicket", "CloseTicket"],
+    },
+    Closing: {
+      type: "policy",
+      description: "Closes tickets upon resolution",
+      handles: ["TicketResolved"],
+      reads: ["Tickets"],
+      invokes: ["CloseTicket"],
+    },
+    Body: {
+      type: "schema",
+      requires: { id: "number" },
+      optional: { description: "string" },
+    },
+    Address: {
+      type: "schema",
+      requires: { street: "string" },
+    },
+    OpenTicket: {
+      type: "schema",
+      description: "Command to open a new ticket",
+      requires: { title: "string" },
+      optional: { user: "uuid", description: "string" },
+    },
+    TicketOpened: {
+      type: "schema",
+      description: "Event recording when a ticket was opened",
+      requires: { title: "string", user: "uuid" },
+    },
+    AssignTicket: {
+      type: "schema",
+      requires: { id: "string", agentId: "string" },
+      optional: { expires: "number" },
+    },
+  },
+
+  // Messaging Context
+  Messaging: {
+    Messaging: {
+      type: "process",
+      description: "Delivers messages to recipients",
+      handles: ["TicketLifecycle.MessageAdded"],
+      reads: ["TicketLifecycle.Tickets"],
+      invokes: [
+        "TicketLifecycle.MarkMessageDelivered",
+        "TicketLifecycle.AcknowledgeMessage",
+      ],
+    },
+  },
+
+  // Billing Context
+  Billing: {
+    Billing: {
+      type: "system",
+      handles: ["BillTenant"],
+      emits: ["TenantBilled"],
+    },
+    BillingPolicy: {
+      type: "policy",
+      handles: ["TicketLifecycle.TicketResolved"],
+      reads: ["TicketLifecycle.Tickets", "Admin.Tenants"],
+      invokes: ["BillTenant", "AddTenant"],
+    },
+  },
+
+  // Admin Context
+  Admin: {
+    Tenant: {
+      type: "aggregate",
+      handles: ["AddTenant"],
+      emits: ["TenantAdded"],
+    },
+    Agent: { type: "aggregate", handles: ["AddAgent"], emits: ["AgentAdded"] },
+    Product: {
+      type: "aggregate",
+      handles: ["AddProduct"],
+      emits: ["ProductAdded"],
+    },
+    Tenants: { type: "projector", handles: ["TenantAdded"] },
+    Agents: { type: "projector", handles: ["AgentAdded"] },
+    Products: { type: "projector", handles: ["ProductAdded"] },
+  },
+}

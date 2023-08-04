@@ -11,7 +11,7 @@ import {
   generateVsCodeTasks,
 } from "./scripts";
 import { Art } from "./types";
-import { createDirectory, createFile, decamelize, loadFile } from "./utils";
+import { createDirectory, createFile, decamelize } from "./utils";
 
 function createIndexFile(filePath: string, arts: Art[]): void {
   const indexContent = `import { app, bootstrap } from "@rotorsoft/eventually";
@@ -30,7 +30,7 @@ bootstrap(async () => {
   createFile(filePath, indexContent);
 }
 
-function createAggregate(projectDirectory: string, art: Art): void {
+function createAggregate(pdir: string, art: Art): void {
   const content = `import { InferAggregate } from "@rotorsoft/eventually";
 import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
   
@@ -92,17 +92,11 @@ ${art.in
 })  
 `;
 
-  createFile(
-    path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
-    content
-  );
-  createFile(
-    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
-    unitTest
-  );
+  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
+  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
 }
 
-function createSystem(projectDirectory: string, art: Art): void {
+function createSystem(pdir: string, art: Art): void {
   const content = `import { InferSystem } from "@rotorsoft/eventually";
 import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
   
@@ -150,17 +144,11 @@ ${art.in
 })  
 `;
 
-  createFile(
-    path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
-    content
-  );
-  createFile(
-    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
-    unitTest
-  );
+  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
+  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
 }
 
-function createPolicy(projectDirectory: string, art: Art): void {
+function createPolicy(pdir: string, art: Art): void {
   const content = `import { InferPolicy } from "@rotorsoft/eventually";
 import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
   
@@ -203,17 +191,11 @@ ${art.in
 })  
 `;
 
-  createFile(
-    path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
-    content
-  );
-  createFile(
-    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
-    unitTest
-  );
+  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
+  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
 }
 
-function createProcess(projectDirectory: string, art: Art): void {
+function createProcess(pdir: string, art: Art): void {
   const content = `import { InferProcessManager } from "@rotorsoft/eventually";
 import { ${art.name}Schemas, ${art.name}OutputSchema } from "./schemas/${
     art.name
@@ -269,18 +251,12 @@ ${art.in
 })  
 `;
 
-  createFile(
-    path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
-    content
-  );
-  createFile(
-    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
-    unitTest
-  );
+  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
+  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
 }
 
-function createProjector(projectDirectory: string, art: Art): void {
-  const content = `import { InferProjector } from "@rotorsoft/eventually";
+function createProjector(pdir: string, art: Art): void {
+  const content = `import { client, InferProjector } from "@rotorsoft/eventually";
 import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
   
 export const ${art.name} = (): InferProjector<typeof ${art.name}Schemas> => ({
@@ -290,9 +266,19 @@ export const ${art.name} = (): InferProjector<typeof ${art.name}Schemas> => ({
 ${art.in
   .map(
     (event) =>
-      `    ${toName(
-        event
-      )}: ({ stream, data }) => { return Promise.resolve({ upserts: [], deletes: [] }); }`
+      `    ${toName(event)}: async ({ stream, data }, map) => {
+        const id = stream; // TBD
+
+        let state = { id };
+        if (!map.has(id))
+          await client().read(${
+            art.name
+          }, id, (record) => state = record.state);
+        else
+          state = map.get(id)!;
+        
+        return [{ ...state, id }]; // TBD
+      }`
   )
   .join(",\n")} 
   },
@@ -312,26 +298,17 @@ describe("${art.name} ${art.type}", () => {
   });
 
   it("should handle events", async() => {
-${art.in
-  .map(
-    (event) =>
-      `    await client().project(${art.name}, ${toDefaultEvent(event)});`
-  )
-  .join("\n")}
+    await client().project(${art.name}, [
+${art.in.map((event) => `      ${toDefaultEvent(event)}`).join(",\n")}
+    ]);
     await broker().drain();
     const records = await client().read(${art.name}, "projectionId", ()=>{});
   })
 })  
 `;
 
-  createFile(
-    path.join(projectDirectory, `src/${art.name}.${art.type}.ts`),
-    content
-  );
-  createFile(
-    path.join(projectDirectory, `src/__tests__/${art.name}.spec.ts`),
-    unitTest
-  );
+  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
+  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
 }
 
 const artMap: { [key in Visual]?: (filePath: string, art: Art) => void } = {
@@ -351,19 +328,19 @@ const Arts: Array<Visual> = [
 ];
 
 function generateContext(
-  dir: string,
+  cdir: string,
   name: string,
   ctx?: ContextNode,
   workspace = false
 ): void {
-  createDirectory(dir);
-  createPackageJson(dir, name);
-  createJestConfig(dir);
-  workspace && createTsConfig(dir, "../../tsconfig.json");
-  createDirectory(path.join(dir, "src"));
-  createDirectory(path.join(dir, "src", "schemas"));
-  createDirectory(path.join(dir, "src", "__tests__"));
-  createDirectory(path.join(dir, "dist"));
+  createDirectory(cdir);
+  createPackageJson(cdir, name);
+  createJestConfig(cdir);
+  workspace && createTsConfig(cdir, "../../tsconfig.json");
+  createDirectory(path.join(cdir, "src"));
+  createDirectory(path.join(cdir, "src", "schemas"));
+  createDirectory(path.join(cdir, "src", "__tests__"));
+  createDirectory(path.join(cdir, "dist"));
   const arts: Art[] = ctx
     ? [...ctx.nodes.entries()]
         .filter(([, value]) => Arts.includes(value.visual))
@@ -387,49 +364,36 @@ function generateContext(
         .sort((a, b) => a.name.localeCompare(b.name))
     : [];
   arts.forEach((art) => {
-    artMap[art.type]!(dir, art);
-    createSchemas(dir, art);
+    artMap[art.type]!(cdir, art);
+    createSchemas(cdir, art);
   });
-  createIndexFile(path.join(dir, "src/index.ts"), arts);
+  createIndexFile(path.join(cdir, "src/index.ts"), arts);
 }
 
 export function generateContexts(
-  projectDirectory: string,
-  project: string
+  pdir: string,
+  project: string,
+  code: string
 ): void {
-  const esml = loadFile(path.join(process.cwd(), `${project}.esml`));
-  if (esml) {
-    const model = Grammar.parse(json5.parse(esml));
-    const root = compile(model);
-    root.nodes.delete("actors");
-    if (root.nodes.size === 1)
-      generateContext(
-        projectDirectory,
-        project,
-        root.nodes.values().next().value
-      );
-    else {
-      const ids = [...root.nodes.keys()].map((id) => decamelize(id)).sort();
-      createPackageJson(
-        projectDirectory,
-        project,
-        ids.map((id) => `packages/${id}`)
-      );
-      createDirectory(path.join(projectDirectory, "packages"));
-      root.nodes.forEach((node, name) => {
-        const pkg = decamelize(name);
-        generateContext(
-          path.join(projectDirectory, "packages", pkg),
-          pkg,
-          node as ContextNode,
-          true
-        );
-      });
-      generateVsCodeTasks(path.join(projectDirectory, ".vscode"), ids);
-      generateScripts(path.join(projectDirectory, "scripts"));
-      generateDockerCompose(projectDirectory, ids);
-    }
-  } else {
-    generateContext(projectDirectory, project);
-  }
+  const model = Grammar.parse(json5.parse(code));
+  const root = compile(model);
+  const ids = [...root.nodes.keys()].map((id) => decamelize(id)).sort();
+  createPackageJson(
+    pdir,
+    project,
+    ids.map((id) => `packages/${id}`)
+  );
+  createDirectory(path.join(pdir, "packages"));
+  root.nodes.forEach((node, name) => {
+    const pkg = decamelize(name);
+    generateContext(
+      path.join(pdir, "packages", pkg),
+      pkg,
+      node as ContextNode,
+      true
+    );
+  });
+  generateVsCodeTasks(path.join(pdir, ".vscode"), ids);
+  generateScripts(path.join(pdir, "scripts"));
+  generateDockerCompose(pdir, ids);
 }

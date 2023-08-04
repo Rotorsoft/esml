@@ -28,7 +28,7 @@ ESML, which stands for `Event Storming Modeling Language`, aims to create a user
 - To render the SVG model
 
   ```typescript
-  esml(code: string, scale: number) => { error?: ParseError; svg?: string; width?: number; height?: number };
+  esml(code: string, scale: number) => { error?: Error; svg?: string; width?: number; height?: number };
   ```
 
 - To embed the canvas in your HTML document
@@ -71,4 +71,4 @@ Enjoy playing with ESML at [Playground](https://rotorsoft.github.io/esml/)
 
 ## Sample Model
 
-[WorkDesk Ticket Service](./docs/app.js)
+[WorkDesk Ticket Service](./wolfdesk.json5)

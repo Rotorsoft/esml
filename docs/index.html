@@ -113,34 +113,41 @@
         stroke: #efefef;
         filter: none;
       }
-      .node-tooltip-visible {
-        position: absolute;
-        border: solid 1px #eeeeee;
-        padding: 5px;
+      #details {
         border-radius: 5px;
-        z-index: 9999;
-        background-color: rgb(247, 245, 219);
-        max-width: 300px;
+        border: solid #dedede 1px;
+        width: 300px;
         max-height: 600px;
         overflow: auto;
         font-family: monospace;
+        z-index: 500;
+        background-color: white;
+        opacity: 0.8;
       }
-      .node-tooltip-visible .name {
-        font-size: 14px;
+      #details .name {
+        font-size: 15px;
+        font-weight: bold;
         text-align: center;
         padding: 2px;
       }
-      .node-tooltip-visible .description {
-        font-size: 9px;
+      #details .description {
+        font-size: 10px;
         font-style: italic;
-        padding-bottom: 5px;
+        padding-bottom: 8px;
       }
-      .node-tooltip {
-        visibility: hidden;
-      }
-      .table {
+      #details .table {
         font-family: monospace;
         font-size: 10px;
+      }
+      g > rect,
+      g > text {
+        opacity: 1;
+        transition: opacity 0.5s ease-in;
+      }
+      g.faded > rect,
+      g.faded > text {
+        opacity: 0.2;
+        transition: opacity 0.5s ease-out;
       }
     </style>
     <script
@@ -155,6 +162,11 @@
       <div class="col-auto position-fixed bottom-0 start-0">
         <span id="coords" class="badge bg-transparent">Coords</span>
       </div>
+      <div
+        id="details"
+        style="visibility: hidden"
+        class="col-auto position-fixed top-0 end-0 m-2 p-2"
+      ></div>
       <div
         id="menu"
         class="col-auto position-fixed bottom-0 end-0 m-2 p-2 dropup-center dropup"

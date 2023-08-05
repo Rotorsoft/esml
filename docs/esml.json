@@ -171,6 +171,10 @@
                 },
                 "invokes": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
+                },
+                "useRefs": {
+                  "type": "boolean",
+                  "description": "Render near commands, with no edges"
                 }
               },
               "required": [
@@ -198,6 +202,10 @@
                 "schema": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema",
                   "description": "A message or state schema"
+                },
+                "useRefs": {
+                  "type": "boolean",
+                  "description": "Render near commands, with no edges"
                 }
               },
               "required": [

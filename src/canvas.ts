@@ -1,5 +1,5 @@
 import { esml, Node } from "./esml";
-import { EventEmitter } from "./utils";
+import { debounce, EventEmitter } from "./utils";
 
 const MIN_X = 0,
   MIN_Y = 0;
@@ -30,13 +30,13 @@ export class Canvas extends EventEmitter {
   readonly SCALE: number = 80;
   readonly WIDTH = this.SCALE * 100;
   readonly HEIGHT = this.SCALE * 100;
-  readonly tooltip: HTMLDivElement;
   readonly svg: Element;
   readonly coordsSpan: HTMLSpanElement | undefined;
   readonly zoomBtn: HTMLButtonElement | undefined;
   readonly zoomInBtn: HTMLButtonElement | undefined;
   readonly zoomOutBtn: HTMLButtonElement | undefined;
 
+  readonly details: HTMLElement | null;
   private nodes?: HTMLDivElement;
 
   private dragging = false;
@@ -55,9 +55,7 @@ export class Canvas extends EventEmitter {
     options?: Options
   ) {
     super();
-    this.tooltip = document.createElement("div");
-    this.tooltip.className = "node-tooltip";
-    this.container.appendChild(this.tooltip);
+    this.details = this.document.getElementById("details");
 
     if (options) {
       this.SCALE = options.SCALE;
@@ -175,43 +173,70 @@ export class Canvas extends EventEmitter {
     }
   }
 
-  private addNodes(nodes?: Node[]) {
+  private addNodes(nodes: Node[]) {
+    const fadable = Object.fromEntries(
+      nodes
+        .filter((n) =>
+          ["aggregate", "system", "policy", "process", "projector"].includes(
+            n.visual
+          )
+        )
+        .map(({ index, visual }) => [`n${index}`, visual])
+    );
+
+    const fade = debounce((id: string) => {
+      if (id) {
+        const fade = document.querySelectorAll(`g:not(.${id}):not(.context)`);
+        for (let e of fade) {
+          e.id !== id && e.classList.add("faded");
+        }
+      }
+    }, 500);
+
     const handleMouseEnter = (event: MouseEvent) => {
       const g = event.target as SVGGElement;
-      const name = g.dataset.name;
-      const node = this.document.getElementById("node-" + name);
-      if (node) {
-        this.tooltip.innerHTML = node?.innerHTML;
-        this.tooltip.className = "node-tooltip-visible";
-        //const { left, top, width } = g.getBoundingClientRect();
-        const x = event.x; // left + (width - this.tooltip.offsetWidth) / 2;
-        const y = event.y; // top - this.tooltip.offsetHeight;
-        this.tooltip.style.left = x + "px";
-        this.tooltip.style.top = y + "px";
+
+      if (fadable[g.id]) fade(g.id);
+
+      const node = this.document.getElementById("node-" + g.id);
+      if (this.details && node) {
+        this.details.innerHTML = node.innerHTML;
+        this.details.style.visibility = "visible";
       }
     };
+
     const handleMouseLeave = () => {
-      this.tooltip.className = "node-tooltip";
-      this.tooltip.innerText = "";
+      fade("");
+      const faded = document.querySelectorAll(".faded");
+      for (let e of faded) {
+        e.classList.remove("faded");
+      }
+      this.details && (this.details.style.visibility = "hidden");
     };
+
     this.nodes && this.container.removeChild(this.nodes);
     this.nodes = this.document.createElement("div");
     this.container.appendChild(this.nodes);
     this.nodes.style.visibility = "hidden";
-    nodes &&
-      nodes
-        .filter((node) => node.fields.length || node.description)
-        .map((node) => {
+
+    nodes.map((node) => {
+      const g = this.document.getElementById("n" + node.index);
+      if (g) {
+        if (!g.classList.contains("context")) {
+          g.addEventListener("mouseenter", handleMouseEnter);
+          g.addEventListener("mouseleave", handleMouseLeave);
+        }
+        // details
+        if (node.fields.length || node.description) {
           const el = this.document.createElement("div");
-          el.id = "node-" + node.id;
-          el.innerHTML = `<div class="name">${node.id}</div>
+          el.id = `node-${g.id}`;
+          el.innerHTML = `<div class="name">${node.name}</div>
         <div class="description">${node.description || ""}</div>
         <table class="table table-sm">
           ${node.fields
-            .slice(0, 20)
             .map((f) => {
               const name =
-                f.name.length > 10 ? f.name.substring(0, 10) + "..." : f.name;
+                f.name.length > 20 ? f.name.substring(0, 20) + "..." : f.name;
               const tel = f.required ? "th" : "td";
               return `<tr><${tel}>${name}</${tel}><td>${f.type}</td></tr>`;
             })
@@ -222,12 +247,9 @@ export class Canvas extends EventEmitter {
         </table>
         `;
           this.nodes?.appendChild(el);
-          const g = this.document.getElementById("g-" + node.id);
-          if (g) {
-            g.addEventListener("mouseenter", handleMouseEnter);
-            g.addEventListener("mouseleave", handleMouseLeave);
-          }
-        });
+        }
+      }
+    });
   }
 
   public render(state: State): Error | undefined {
@@ -238,7 +260,7 @@ export class Canvas extends EventEmitter {
     );
     if (error) return error;
     this.svg.innerHTML = svg!;
-    this.addNodes(nodes);
+    nodes && this.addNodes(nodes);
     this.w = Math.floor(width!);
     this.h = Math.floor(height!);
     if (state.zoom) {

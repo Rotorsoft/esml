@@ -66,18 +66,21 @@ const wolfdesk = {
       description: "Assigns tickets to agents after opening",
       handles: ["TicketOpened"],
       invokes: ["AssignTicket", "ReassignTicket"],
+      useRefs: true,
     },
     RequestEscalation: {
       type: "policy",
       description: "Handles ticket escalation requests",
       handles: ["TicketEscalationRequested"],
       invokes: ["EscalateTicket", "CloseTicket"],
+      useRefs: true,
     },
     Closing: {
       type: "policy",
       description: "Closes tickets upon resolution",
       handles: ["TicketResolved"],
       invokes: ["CloseTicket"],
+      useRefs: true,
     },
     Body: {
       type: "schema",
@@ -142,6 +145,7 @@ const wolfdesk = {
       type: "policy",
       handles: ["TicketResolved"],
       invokes: ["Billing.BillTenant", "Billing.AddTenant"],
+      useRefs: true,
     },
   },
   Messaging: {

@@ -61,12 +61,16 @@ export class SvgGraphics implements Graphics {
     });
   }
 
-  group(name: string, attrs?: { class?: string; dx?: number; dy?: number }) {
+  group(
+    id: string,
+    name: string,
+    attrs?: { class?: string; dx?: number; dy?: number }
+  ) {
     const element = new SvgElement("g", {}, this.current);
     this.current.append(element);
     this.current = element;
     if (name) {
-      this.attr("id", "g-" + name);
+      this.attr("id", id);
       this.attr("data-name", name);
     }
     if (attrs) {

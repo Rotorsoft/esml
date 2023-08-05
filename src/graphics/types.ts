@@ -35,6 +35,7 @@ export type SvgAttrs = { [K in keyof SvgAttr]?: SvgAttr[K] };
 
 export interface Graphics {
   group(
+    id: string,
     name: string,
     attrs?: { class?: string; dx?: number; dy?: number }
   ): this;

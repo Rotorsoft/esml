@@ -1,10 +1,13 @@
-import path from "node:path";
-import { FieldType, Node, ScalarFieldTypes, Schema } from "../types";
-import { createFile } from "./utils";
-import { Art } from "./types";
 import { randomUUID } from "node:crypto";
+import {
+  ScalarFieldTypes,
+  type FieldType,
+  type Node,
+  type Schema,
+} from "../types";
+import type { Art } from "./types";
 
-export const toName = (node: Node) => node.id.replace("*", "");
+export const toName = (node: Node) => node.name.replace("*", "");
 
 function toZodType(type: FieldType, required = true): string {
   let t: string;
@@ -73,7 +76,7 @@ export function toDefaultEvent(event: Node): string {
   return `{ name: "${toName(
     event
   )}", id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} }, data: ${toDefault(
-    event.ctx.schemas.get(event.id)
+    event.ctx.schemas.get(event.name)
   )} }`;
 }
 
@@ -82,12 +85,12 @@ function toSchema(art: Art): string | undefined {
   const inputs =
     art.in &&
     art.in
-      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.id))}`)
+      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.name))}`)
       .join(",\n");
   const outputs =
     art.out &&
     art.out
-      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.id))}`)
+      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.name))}`)
       .join(",\n");
 
   switch (art.type) {
@@ -138,12 +141,14 @@ ${inputs}
   }
 }
 
-export function createSchemas(projectDirectory: string, art: Art): void {
+export function createSchemas(art: Art): Record<string, string> {
+  const schemas: Record<string, string> = {};
+
   const refschemas: string[] = [];
   [
     art.schema,
-    ...art.in?.map((v) => v.ctx.schemas.get(v.id)),
-    ...art.out?.map((v) => v.ctx.schemas.get(v.id)),
+    ...art.in?.map((v) => v.ctx.schemas.get(v.name)),
+    ...art.out?.map((v) => v.ctx.schemas.get(v.name)),
   ]
     .filter(Boolean)
     .forEach((sch) => {
@@ -151,17 +156,10 @@ export function createSchemas(projectDirectory: string, art: Art): void {
         if (!ScalarFieldTypes.includes(field.type as any)) {
           const refschema = field.type as Schema;
           refschemas.push(refschema.toString());
-          const schema = `import { z } from "zod";
+          schemas[refschema.toString()] = `import { z } from "zod";
             
 export const ${refschema.toString()} = ${toZod(refschema, 1)}
         `;
-          createFile(
-            path.join(
-              projectDirectory,
-              `src/schemas/${refschema.toString()}.schema.ts`
-            ),
-            schema
-          );
         }
       });
     });
@@ -172,7 +170,7 @@ export const ${refschema.toString()} = ${toZod(refschema, 1)}
   TodoOutputEvents: z.object({}),
 };`;
 
-  const schemas = `import { z } from "zod";
+  schemas[art.name] = `import { z } from "zod";
 ${refschemas.map((r) => `import { ${r} } from "./${r}.schema";`).join("\n")}  
     
 export const ${art.name}Schemas = {${toSchema(art)}
@@ -180,8 +178,6 @@ export const ${art.name}Schemas = {${toSchema(art)}
 
 ${outputSchema || ""}
 `;
-  createFile(
-    path.join(projectDirectory, `src/schemas/${art.name}.schemas.ts`),
-    schemas
-  );
+
+  return schemas;
 }

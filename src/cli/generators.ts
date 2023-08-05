@@ -30,9 +30,27 @@ bootstrap(async () => {
   createFile(filePath, indexContent);
 }
 
-function createAggregate(pdir: string, art: Art): void {
+type ArtResult = { content: string; unitTest: string };
+
+const artMap: { [key in Visual]?: (art: Art) => ArtResult } = {
+  aggregate: createAggregate,
+  system: createSystem,
+  policy: createPolicy,
+  process: createProcess,
+  projector: createProjector,
+};
+
+const Arts: Array<Visual> = [
+  "aggregate",
+  "system",
+  "policy",
+  "process",
+  "projector",
+];
+
+function createAggregate(art: Art): ArtResult {
   const content = `import { InferAggregate } from "@rotorsoft/eventually";
-import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
+import { ${art.name}Schemas } from "./schemas/${art.name}.schema";
   
 export const ${art.name} = (stream: string): InferAggregate<typeof ${
     art.name
@@ -50,13 +68,13 @@ ${art.out
   .join(",\n")} 
   },
   given: {
-${art.in.map((command) => `    ${command.id}: []`).join(",\n")} 
+${art.in.map((command) => `    ${command.name}: []`).join(",\n")} 
   },
   on: {
 ${art.in
   .map(
     (command) =>
-      `    ${command.id}: (data, state, actor) => { return Promise.resolve([]); }`
+      `    ${command.name}: (data, state, actor) => { return Promise.resolve([]); }`
   )
   .join(",\n")} 
   },
@@ -81,7 +99,7 @@ describe("${art.name} ${art.type}", () => {
 ${art.in
   .map(
     (command) =>
-      `    await client().command(${art.name}, "${command.id}", ${toDefault(
+      `    await client().command(${art.name}, "${command.name}", ${toDefault(
         command.schema
       )}, target);`
   )
@@ -92,13 +110,12 @@ ${art.in
 })  
 `;
 
-  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
-  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
+  return { content, unitTest };
 }
 
-function createSystem(pdir: string, art: Art): void {
+function createSystem(art: Art): ArtResult {
   const content = `import { InferSystem } from "@rotorsoft/eventually";
-import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
+import { ${art.name}Schemas } from "./schemas/${art.name}.schema";
   
 export const ${art.name} = (): InferSystem<typeof ${art.name}Schemas> => ({
   description: "TODO: describe this artifact!",
@@ -108,7 +125,7 @@ export const ${art.name} = (): InferSystem<typeof ${art.name}Schemas> => ({
 ${art.in
   .map(
     (command) =>
-      `    ${command.id}: (data, state, actor) => { return Promise.resolve([]); }`
+      `    ${command.name}: (data, state, actor) => { return Promise.resolve([]); }`
   )
   .join(",\n")} 
   },
@@ -133,7 +150,7 @@ describe("${art.name} ${art.type}", () => {
 ${art.in
   .map(
     (command) =>
-      `    await client().command(${art.name}, "${command.id}", ${toDefault(
+      `    await client().command(${art.name}, "${command.name}", ${toDefault(
         command.schema
       )}, target);`
   )
@@ -144,13 +161,12 @@ ${art.in
 })  
 `;
 
-  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
-  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
+  return { content, unitTest };
 }
 
-function createPolicy(pdir: string, art: Art): void {
+function createPolicy(art: Art): ArtResult {
   const content = `import { InferPolicy } from "@rotorsoft/eventually";
-import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
+import { ${art.name}Schemas } from "./schemas/${art.name}.schema";
   
 export const ${art.name} = (): InferPolicy<typeof ${art.name}Schemas> => ({
   description: "TODO: describe this artifact!",
@@ -191,15 +207,14 @@ ${art.in
 })  
 `;
 
-  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
-  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
+  return { content, unitTest };
 }
 
-function createProcess(pdir: string, art: Art): void {
+function createProcess(art: Art): ArtResult {
   const content = `import { InferProcessManager } from "@rotorsoft/eventually";
 import { ${art.name}Schemas, ${art.name}OutputSchema } from "./schemas/${
     art.name
-  }.schemas";
+  }.schema";
   
 export const ${art.name} = (): InferProcessManager<typeof ${
     art.name
@@ -251,13 +266,12 @@ ${art.in
 })  
 `;
 
-  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
-  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
+  return { content, unitTest };
 }
 
-function createProjector(pdir: string, art: Art): void {
+function createProjector(art: Art): ArtResult {
   const content = `import { client, InferProjector } from "@rotorsoft/eventually";
-import { ${art.name}Schemas } from "./schemas/${art.name}.schemas";
+import { ${art.name}Schemas } from "./schemas/${art.name}.schema";
   
 export const ${art.name} = (): InferProjector<typeof ${art.name}Schemas> => ({
   description: "TODO: describe this artifact!",
@@ -307,30 +321,53 @@ ${art.in.map((event) => `      ${toDefaultEvent(event)}`).join(",\n")}
 })  
 `;
 
-  createFile(path.join(pdir, `src/${art.name}.${art.type}.ts`), content);
-  createFile(path.join(pdir, `src/__tests__/${art.name}.spec.ts`), unitTest);
+  return { content, unitTest };
 }
 
-const artMap: { [key in Visual]?: (filePath: string, art: Art) => void } = {
-  aggregate: createAggregate,
-  system: createSystem,
-  policy: createPolicy,
-  process: createProcess,
-  projector: createProjector,
-};
+export function createArtifacts(
+  ctx: ContextNode,
+  callback: (
+    art: Art,
+    result: ArtResult,
+    schemas: Record<string, string>
+  ) => void
+): Art[] {
+  const arts: Art[] = ctx
+    ? [...ctx.nodes.entries()]
+        .filter(([, value]) => Arts.includes(value.visual))
+        .map(([name, value]) => ({
+          name,
+          type: value.visual,
+          schema: ctx.schemas.get(value.name),
+          in: [...ctx.edges.values()]
+            .filter(({ target }) => target.name === name)
+            .map(({ source }) => ({
+              ...source,
+              schema: ctx.schemas.get(source.name),
+            })),
+          out: [...ctx.edges.values()]
+            .filter(({ source }) => source.name === name)
+            .map(({ target }) => ({
+              ...target,
+              schema: ctx.schemas.get(target.name),
+            })),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : [];
 
-const Arts: Array<Visual> = [
-  "aggregate",
-  "system",
-  "policy",
-  "process",
-  "projector",
-];
+  arts.forEach((art) => {
+    const result = artMap[art.type]!(art);
+    const schemas = createSchemas(art);
+    callback(art, result, schemas);
+  });
+
+  return arts;
+}
 
 function generateContext(
   cdir: string,
   name: string,
-  ctx?: ContextNode,
+  ctx: ContextNode,
   workspace = false
 ): void {
   createDirectory(cdir);
@@ -341,32 +378,21 @@ function generateContext(
   createDirectory(path.join(cdir, "src", "schemas"));
   createDirectory(path.join(cdir, "src", "__tests__"));
   createDirectory(path.join(cdir, "dist"));
-  const arts: Art[] = ctx
-    ? [...ctx.nodes.entries()]
-        .filter(([, value]) => Arts.includes(value.visual))
-        .map(([name, value]) => ({
-          name,
-          type: value.visual,
-          schema: ctx.schemas.get(value.id),
-          in: [...ctx.edges.values()]
-            .filter(({ target }) => target.id === name)
-            .map(({ source }) => ({
-              ...source,
-              schema: ctx.schemas.get(source.id),
-            })),
-          out: [...ctx.edges.values()]
-            .filter(({ source }) => source.id === name)
-            .map(({ target }) => ({
-              ...target,
-              schema: ctx.schemas.get(target.id),
-            })),
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    : [];
-  arts.forEach((art) => {
-    artMap[art.type]!(cdir, art);
-    createSchemas(cdir, art);
+
+  const arts = createArtifacts(ctx, (art, result, schemas) => {
+    createFile(
+      path.join(cdir, `src/${art.name}.${art.type}.ts`),
+      result.content
+    );
+    createFile(
+      path.join(cdir, `src/__tests__/${art.name}.spec.ts`),
+      result.unitTest
+    );
+    Object.entries(schemas).forEach(([name, content]) =>
+      createFile(path.join(cdir, `src/schemas/${name}.schema.ts`), content)
+    );
   });
+
   createIndexFile(path.join(cdir, "src/index.ts"), arts);
 }
 

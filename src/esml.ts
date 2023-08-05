@@ -27,7 +27,8 @@ const FONTS: { [key in Font]: string } = {
 const DEFAULT_FONT = "inconsolata";
 
 export type Node = {
-  id: string;
+  index: number;
+  name: string;
   visual: Visual;
   ctx: string;
   x: number;
@@ -64,20 +65,21 @@ export const esml = (
     const root = compile(model);
     layout(root, style);
     const svg = render(root, style);
-    const nodes = [...root.nodes.values()]
-      .filter((n) => n.id !== "actors")
-      .flatMap((n) => [...(n as ContextNode).nodes.values()]);
+    const nodes = [...root.nodes.values()].flatMap((n) => [
+      ...(n as ContextNode).nodes.values(),
+    ]);
     return {
       svg,
       width: root.width,
       height: root.height,
       nodes: nodes.map(
-        ({ id, visual, ctx, x, y, width, height, description }) => {
-          const schema = ctx.schemas.get(id);
+        ({ index, name, visual, ctx, x, y, width, height, description }) => {
+          const schema = ctx.schemas.get(name);
           return {
-            id,
+            index,
+            name,
             visual,
-            ctx: ctx.id,
+            ctx: ctx.name,
             x,
             y,
             width,

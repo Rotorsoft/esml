@@ -63,11 +63,11 @@ export class Field {
 }
 
 export class Schema extends Map<string, Field> {
-  constructor(readonly id: string, readonly description?: string) {
+  constructor(readonly name: string, readonly description?: string) {
     super();
   }
   toString() {
-    return this.id;
+    return this.name;
   }
 }
 
@@ -80,7 +80,8 @@ export type Edge = {
 };
 
 export type Node = {
-  id: string;
+  index: number;
+  name: string;
   visual: Visual;
   ctx: ContextNode;
   description?: string;
@@ -90,6 +91,8 @@ export type Node = {
   width?: number;
   height?: number;
   refs?: Set<Node>;
+  useRefs?: boolean;
+  rels?: Set<number>;
 };
 
 export type ContextNode = Node & {

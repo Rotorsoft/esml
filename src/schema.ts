@@ -103,6 +103,10 @@ const Policy = z
     description: z.string().optional(),
     handles: List,
     invokes: List,
+    useRefs: z
+      .boolean()
+      .optional()
+      .describe("Render near commands, with no edges"),
   })
   .strict()
   .describe(
@@ -116,6 +120,10 @@ const Process = z
     handles: List,
     invokes: List,
     schema: Schema.optional(),
+    useRefs: z
+      .boolean()
+      .optional()
+      .describe("Render near commands, with no edges"),
   })
   .strict()
   .describe(

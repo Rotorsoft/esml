@@ -11,7 +11,7 @@ import {
   multiply,
   normalize,
   rotate,
-  splitId,
+  splitName,
 } from "../utils";
 import { SvgGraphics } from "./SvgGraphics";
 import { Graphics, Path, Renderable, SvgAttrs } from "./types";
@@ -148,9 +148,9 @@ const renderSimpleRef = (
   h: number,
   g: Graphics
 ) => {
-  g.group("").attr("fill", node.color);
+  g.group("", "").attr("fill", node.color);
   g.rect(x, y, w, h);
-  renderText(splitId(node.id), w, h, g, {
+  renderText(splitName(node.name), w, h, g, {
     fit: true,
     x: x + w / 2,
     y: y + h / 2,
@@ -185,8 +185,8 @@ const renderMultilineRef = (
   h: number,
   g: Graphics
 ) => {
-  const text = targets.map((target) => `- ${splitId(target.id).join(" ")}`);
-  g.group("")
+  const text = targets.map((target) => `- ${splitName(target.name).join(" ")}`);
+  g.group("", "")
     .attr("fill", targets[0].color)
     .attr("text-align", "left")
     .attr("text-anchor", "start");
@@ -232,8 +232,8 @@ const renderRefs = (node: Node, g: Graphics, style: Style) => {
 
 const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
   if (isContextNode(ctx)) {
-    if (ctx.id) {
-      const words = splitId(ctx.id);
+    if (ctx.name) {
+      const words = splitName(ctx.name);
       g.text(words.join(" "), 0, 0, {
         fill: CTX_STROKE,
         stroke: CTX_STROKE,
@@ -241,14 +241,15 @@ const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
       });
       g.rect(0, 0, ctx.width!, ctx.height!, { rx: 25, ry: 25 });
     }
-    g.group("", { dx: style.padding, dy: style.padding });
-    if (ctx.id)
+    g.group(`n${ctx.index}`, "", { dx: style.padding, dy: style.padding });
+    if (ctx.name)
       g.attr("text-align", "center")
         .attr("text-anchor", "middle")
         .attr("stroke", NOTE_STROKE);
     ctx.edges.forEach(
       (e) =>
-        e.color && renderEdge({ ...e, source: ctx.nodes.get(e.source.id)! }, g)
+        e.color &&
+        renderEdge({ ...e, source: ctx.nodes.get(e.source.name)! }, g)
     );
     ctx.nodes.forEach((n) => n.color && renderNode(n, g, style));
     ctx.nodes.forEach((n) => n.refs && renderRefs(n, g, style));
@@ -259,8 +260,13 @@ const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
 const note: Renderable = (node: Node, g: Graphics) => {
   g.attr("fill", node.color!);
   g.rect(0, 0, node.width!, node.height!);
-  renderText(splitId(node.id), node.width!, node.height!, g);
-  const schema = node.ctx.schemas.get(node.id);
+  if (node.rels)
+    g.attr(
+      "class",
+      node.visual.concat(" ", [...node.rels].map((i) => `n${i}`).join(" "))
+    );
+  renderText(splitName(node.name), node.width!, node.height!, g);
+  const schema = node.ctx.schemas.get(node.name);
   schema &&
     g.text(`{${schema.size}}`, node.width! - 6, 6, {
       "font-size": "6pt",
@@ -278,7 +284,7 @@ const renderNode = (node: Node, g: Graphics, style: Style) => {
       ? note
       : undefined; // don't render actors as nodes
   if (render) {
-    g.group(node.id, { class: node.visual, dx, dy });
+    g.group(`n${node.index}`, node.name, { class: node.visual, dx, dy });
     render(node, g, style);
     g.ungroup();
   }

@@ -20,7 +20,8 @@
     "docs"
   ],
   "bin": {
-    "create-eventually-app": "dist/cli/create-eventually-app.js"
+    "create-eventually-app": "dist/cli/create-eventually-app.js",
+    "create-eventually-arts": "dist/cli/create-eventually-arts.js"
   },
   "dependencies": {
     "dagre": "^0.8.5",

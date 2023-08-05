@@ -1,6 +1,6 @@
 import * as dagre from "dagre";
 import type { ContextNode, Node, Style, Visual } from "../types";
-import { splitId } from "../utils";
+import { splitName } from "../utils";
 
 type Layouter = (node: Node, style: Style) => void;
 
@@ -51,29 +51,29 @@ export const layout = (root: ContextNode, style: Style) => {
         nodesep: style.margin,
         edgesep: style.margin,
         ranksep: style.margin,
-        acyclicer: ctx.id && "greedy",
+        acyclicer: ctx.name && "greedy",
         rankdir: "LR",
         ranker: "network-simplex",
       });
       ctx.nodes.forEach((n) => n.color && layouter(n.visual)(n, style));
       ctx.nodes.forEach(
-        ({ id, width, height }) =>
-          width && height && graph.setNode(id, { width, height })
+        ({ name, width, height }) =>
+          width && height && graph.setNode(name, { width, height })
       );
-      ctx.edges.forEach(({ source, target }, id) =>
-        graph.setEdge(source.id, target.id, {}, id)
+      ctx.edges.forEach(({ source, target }, name) =>
+        graph.setEdge(source.name, target.name, {}, name)
       );
       dagre.layout(graph);
 
       ctx.nodes.forEach((n) => {
-        const gn = graph.node(n.id);
+        const gn = graph.node(n.name);
         if (gn) {
           n.x = gn.x;
           n.y = gn.y;
         }
       });
 
-      !ctx.id &&
+      !ctx.name &&
         graph.edges().forEach((e) => {
           const ge = graph.edge(e);
           const ne = ctx.edges.get(e.name!)!;
@@ -86,7 +86,7 @@ export const layout = (root: ContextNode, style: Style) => {
       ctx.width = width + PAD;
       ctx.height = height + PAD;
     } else {
-      ctx.width = splitId(ctx.id).join(" ").length * style.fontSize + PAD;
+      ctx.width = splitName(ctx.name).join(" ").length * style.fontSize + PAD;
       ctx.height = style.fontSize + PAD;
     }
   };

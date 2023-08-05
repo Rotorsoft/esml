@@ -2,18 +2,6 @@
 {
   // Core Ticket Context
   TicketLifecycle: {
-    Customer: {
-      type: "actor",
-      description: "A customer of the service",
-      reads: ["Tickets"],
-      invokes: ["OpenTicket", "AddMessage", "RequestTicketEscalation"],
-    },
-    Agent: {
-      type: "actor",
-      description: "A customer service agent",
-      reads: ["Tickets"],
-      invokes: ["AddMessage", "CloseTicket"],
-    },
     Ticket: {
       type: "aggregate",
       description: "The main aggregate holding ticket core logic",
@@ -78,21 +66,18 @@
       type: "policy",
       description: "Assigns tickets to agents after opening",
       handles: ["TicketOpened"],
-      reads: ["Tickets", "Admin.Agents"],
       invokes: ["AssignTicket", "ReassignTicket"],
     },
     RequestEscalation: {
       type: "policy",
       description: "Handles ticket escalation requests",
       handles: ["TicketEscalationRequested"],
-      reads: ["Tickets", "Admin.Agents"],
       invokes: ["EscalateTicket", "CloseTicket"],
     },
     Closing: {
       type: "policy",
       description: "Closes tickets upon resolution",
       handles: ["TicketResolved"],
-      reads: ["Tickets"],
       invokes: ["CloseTicket"],
     },
     Body: {
@@ -128,7 +113,6 @@
       type: "process",
       description: "Delivers messages to recipients",
       handles: ["TicketLifecycle.MessageAdded"],
-      reads: ["TicketLifecycle.Tickets"],
       invokes: [
         "TicketLifecycle.MarkMessageDelivered",
         "TicketLifecycle.AcknowledgeMessage",
@@ -146,7 +130,6 @@
     BillingPolicy: {
       type: "policy",
       handles: ["TicketLifecycle.TicketResolved"],
-      reads: ["TicketLifecycle.Tickets", "Admin.Tenants"],
       invokes: ["BillTenant", "AddTenant"],
     },
   },

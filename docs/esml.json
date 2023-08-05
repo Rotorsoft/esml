@@ -171,16 +171,13 @@
                 },
                 "invokes": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
-                },
-                "reads": {
-                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
                 }
               },
               "required": [
                 "type"
               ],
               "additionalProperties": false,
-              "description": "Policy artifact, can handle (react to) events, read projections, and invoke commands"
+              "description": "Policy artifact, can handle (react to) events, and invoke commands"
             },
             {
               "type": "object",
@@ -198,9 +195,6 @@
                 "invokes": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
                 },
-                "reads": {
-                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
-                },
                 "schema": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema",
                   "description": "A message or state schema"
@@ -210,7 +204,7 @@
                 "type"
               ],
               "additionalProperties": false,
-              "description": "Process manager artifact, can handle (react to) events, read projections, and invoke commands, with a state"
+              "description": "Process manager artifact, can handle (react to) events, and invoke commands, with a state"
             },
             {
               "type": "object",

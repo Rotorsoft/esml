@@ -103,11 +103,10 @@ const Policy = z
     description: z.string().optional(),
     handles: List,
     invokes: List,
-    reads: List,
   })
   .strict()
   .describe(
-    "Policy artifact, can handle (react to) events, read projections, and invoke commands"
+    "Policy artifact, can handle (react to) events, and invoke commands"
   );
 
 const Process = z
@@ -116,12 +115,11 @@ const Process = z
     description: z.string().optional(),
     handles: List,
     invokes: List,
-    reads: List,
     schema: Schema.optional(),
   })
   .strict()
   .describe(
-    "Process manager artifact, can handle (react to) events, read projections, and invoke commands, with a state"
+    "Process manager artifact, can handle (react to) events, and invoke commands, with a state"
   );
 
 const Projector = z

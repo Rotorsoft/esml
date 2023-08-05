@@ -1,5 +1,5 @@
 import * as dagre from "dagre";
-import { ContextNode, Node, Style, Visual } from "../artifacts";
+import type { ContextNode, Node, Style, Visual } from "../types";
 import { splitId } from "../utils";
 
 type Layouter = (node: Node, style: Style) => void;

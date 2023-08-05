@@ -1,9 +1,9 @@
 import json5 from "json5";
 import { ZodError } from "zod";
-import { ContextNode, Field, Style, Visual } from "./artifacts";
 import { compile } from "./compiler";
 import { layout, render } from "./graphics";
 import { Grammar } from "./schema";
+import type { ContextNode, Field, Style, Visual } from "./types";
 
 export class Json5Error extends Error {
   constructor(

@@ -1,4 +1,4 @@
-import { Vector } from "../utils";
+import { Vector } from "./utils";
 
 export type Style = {
   scale: number;
@@ -10,36 +10,27 @@ export type Style = {
   fontSize: number;
 };
 
-export const ArtTypes = [
+export const Visuals = [
   "context",
-  "actor",
   "aggregate",
   "system",
   "projector",
   "policy",
   "process",
-  "schema",
+  "command",
+  "event",
+  "actor",
 ] as const;
-const Messages = ["command", "event"] as const;
-const Visuals = [...ArtTypes, ...Messages] as const;
 export const Actions = [
   "invokes",
   "handles",
   "emits",
   "includes",
-  "reads",
   "requires",
   "optional",
 ] as const;
-export const Keywords = [...ArtTypes, ...Actions] as const;
-export const RelTypes = [...Messages, "projector", "field"] as const;
-
-export type ArtType = (typeof ArtTypes)[number];
-export type Message = (typeof Messages)[number];
 export type Visual = (typeof Visuals)[number];
 export type Action = (typeof Actions)[number];
-export type Keyword = (typeof Keywords)[number];
-export type RelType = (typeof RelTypes)[number];
 
 export const COLORS: { [key in Visual]: string } = {
   context: "white",
@@ -51,15 +42,6 @@ export const COLORS: { [key in Visual]: string } = {
   process: "#c595cd",
   command: "#7adcfb",
   event: "#ffaa61",
-  schema: "transparent",
-};
-
-type Rel = {
-  source: Node;
-  target: Node;
-  edge?: boolean;
-  color?: string;
-  arrow?: boolean;
 };
 
 export const ScalarFieldTypes = [
@@ -69,6 +51,7 @@ export const ScalarFieldTypes = [
   "uuid",
   "date",
 ] as const;
+
 export type FieldType = (typeof ScalarFieldTypes)[number] | Schema;
 export class Field {
   constructor(
@@ -78,6 +61,7 @@ export class Field {
     readonly size?: number
   ) {}
 }
+
 export class Schema extends Map<string, Field> {
   constructor(readonly id: string, readonly description?: string) {
     super();
@@ -86,6 +70,14 @@ export class Schema extends Map<string, Field> {
     return this.id;
   }
 }
+
+export type Edge = {
+  source: Node;
+  target: Node;
+  color?: string;
+  arrow?: boolean;
+  path?: Vector[];
+};
 
 export type Node = {
   id: string;
@@ -97,25 +89,21 @@ export type Node = {
   y?: number;
   width?: number;
   height?: number;
-};
-
-export type Edge = Rel & {
-  path?: Vector[];
+  refs?: Set<Node>;
 };
 
 export type ContextNode = Node & {
   visual: "context";
   nodes: Map<string, Node>;
   edges: Map<string, Edge>;
-  refs: Map<string, Set<Node>>;
   schemas: Map<string, Schema>;
 };
 
 export const isContextNode = (node: Node): node is ContextNode =>
   "nodes" in node;
 
-export type Artifact = (
+export type Edger = (
   source: Node,
   target: Node,
   root: ContextNode
-) => Rel | undefined;
+) => Edge | undefined;

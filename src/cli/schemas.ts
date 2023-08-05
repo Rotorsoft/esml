@@ -1,5 +1,5 @@
 import path from "node:path";
-import { FieldType, Node, ScalarFieldTypes, Schema } from "../artifacts/types";
+import { FieldType, Node, ScalarFieldTypes, Schema } from "../types";
 import { createFile } from "./utils";
 import { Art } from "./types";
 import { randomUUID } from "node:crypto";

@@ -9,7 +9,7 @@
   "main": "dist/index",
   "types": "dist/index",
   "scripts": {
-    "gen-schema": "npx ts-node ./src/cli/gen-schema.ts >> ./docs/esml.json",
+    "gen-schema": "rm ./docs/esml.json && npx ts-node ./src/cli/gen-schema.ts >> ./docs/esml.json",
     "start": "rollup -c --watch --bundleConfigAsCjs rollup.config.js",
     "test": "npx jest",
     "build": "rm -rf dist && npm install && npx tsc && npm run gen-schema",

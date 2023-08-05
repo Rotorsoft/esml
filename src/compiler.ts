@@ -3,21 +3,16 @@ import {
   Field,
   ScalarFieldTypes,
   Schema,
-  artifacts,
   type Action,
-  type ArtType,
   type ContextNode,
   type Edge,
   type Node,
   type Visual,
-} from "./artifacts";
+  Edger,
+} from "./types";
 import * as schema from "./schema";
 
-const rules: Partial<Record<ArtType, Partial<Record<Action, Visual>>>> = {
-  actor: {
-    invokes: "command",
-    reads: "projector",
-  },
+const rules: Partial<Record<Visual, Partial<Record<Action, Visual>>>> = {
   system: {
     handles: "command",
     emits: "event",
@@ -29,14 +24,79 @@ const rules: Partial<Record<ArtType, Partial<Record<Action, Visual>>>> = {
   policy: {
     handles: "event",
     invokes: "command",
-    reads: "projector",
   },
   process: {
     handles: "event",
     invokes: "command",
-    reads: "projector",
   },
   projector: { handles: "event" },
+};
+
+const system: Edger = (source, target) =>
+  target.visual === "command"
+    ? { source: target, target: source }
+    : { source, target };
+
+const policy: Edger = (source, target) =>
+  target.visual === "event"
+    ? {
+        source:
+          source.ctx === target.ctx
+            ? target
+            : { ...target, id: target.id + "*" },
+        target: source,
+        color: COLORS.event,
+        arrow: false,
+      }
+    : // : source.ctx === target.ctx
+      // ? {
+      //     source,
+      //     target,
+      //     color: COLORS.command,
+      //     arrow: false,
+      //   }
+      undefined; // policy -> (external?) command
+
+const edgers: { [key in Visual]: Edger } = {
+  context: (source, target, root) => {
+    if (target.visual === "event")
+      return {
+        source: root.nodes.get(target.ctx.id)!,
+        target: root.nodes.get(source.ctx.id)!,
+        color: COLORS.event,
+        arrow: true,
+      };
+
+    if (target.visual === "command")
+      return {
+        source: root.nodes.get(source.ctx.id)!,
+        target: root.nodes.get(target.ctx.id)!,
+        color: COLORS.command,
+        arrow: true,
+      };
+
+    if (target.visual === "projector")
+      return {
+        source: root.nodes.get(source.ctx.id)!,
+        target: root.nodes.get(target.ctx.id)!,
+        color: COLORS.projector,
+        arrow: true,
+      };
+  },
+  aggregate: system,
+  system: system,
+  policy: policy,
+  process: policy,
+  projector: (source, target) => ({
+    source:
+      source.ctx === target.ctx ? target : { ...target, id: target.id + "*" },
+    target: source,
+    color: COLORS.event,
+    arrow: false,
+  }),
+  command: () => undefined,
+  event: () => undefined,
+  actor: () => undefined,
 };
 
 const newContext = (
@@ -50,11 +110,15 @@ const newContext = (
   color: hidden ? undefined : COLORS.context,
   nodes: new Map(),
   edges: new Map(),
-  refs: new Map(),
   schemas: new Map(),
   x: 0,
   y: 0,
 });
+
+const addRef = (source: Node, target: Node) => {
+  !source.refs && (source.refs = new Set());
+  source.refs.add(target);
+};
 
 const addSchema = (
   ctx: ContextNode,
@@ -118,17 +182,25 @@ export const compile = (model: schema.Grammar): ContextNode => {
     id: string,
     statement: schema.Statement
   ): void => {
-    if (statement.type === "schema") addSchema(ctx, id, statement);
-    else {
+    if (statement.type === "schema") {
+      addSchema(ctx, id, statement);
+    } else {
       const node = getNode(ctx, id, statement.type);
       node.description = statement.description;
       if ("schema" in statement) addSchema(ctx, id, statement.schema!);
-      Object.entries(statement).forEach(([action, list]) => {
-        if (Array.isArray(list)) {
-          const visual = rules[statement.type]![action as Action];
-          visual && list.forEach((rel) => getNode(ctx, rel, visual));
-        }
-      });
+      if (statement.type === "command") {
+        statement.actors &&
+          Object.keys(statement.actors).forEach((actor) =>
+            getNode(ctx, actor, "actor")
+          );
+      } else if (statement.type !== "event") {
+        Object.entries(statement).forEach(([action, list]) => {
+          if (Array.isArray(list)) {
+            const visual = rules[statement.type]![action as Action];
+            visual && list.forEach((rel) => getNode(ctx, rel, visual));
+          }
+        });
+      }
     }
   };
 
@@ -144,53 +216,63 @@ export const compile = (model: schema.Grammar): ContextNode => {
   Object.entries(model).forEach(([id, context]) => {
     const ctx = root.nodes.get(id) as ContextNode;
     Object.entries(context).forEach(([id, statement]) => {
-      const artifact = artifacts[statement.type];
-      const source = ctx.nodes.get(id)!;
+      if (statement.type === "schema") {
+        statement.base && addBaseSchema(ctx, id, statement.base);
+      } else {
+        const edger = edgers[statement.type];
+        const source = ctx.nodes.get(id)!;
 
-      // connect base and value objects in schema
-      if (statement.type === "schema" && statement.base)
-        addBaseSchema(ctx, id, statement.base);
-      if ("schema" in statement && statement.schema?.base)
-        addBaseSchema(ctx, id, statement.schema.base);
+        // connect base and value objects in schema
+        if ("schema" in statement && statement.schema?.base)
+          addBaseSchema(ctx, id, statement.schema.base);
 
-      Object.entries(statement).forEach(([action, list]) => {
-        Array.isArray(list) &&
-          list.forEach((id: string) => {
-            const target = getNode(
-              ctx,
-              id,
-              rules[statement.type]![action as Action]!
-            );
-
-            // connect contexts
-            if (ctx.color && source.ctx !== target.ctx) {
-              const edge = artifacts.context(source, target, root) as Edge;
-              if (edge) {
-                const key = `${edge.source.id}->${edge.target.id}-${
-                  edge.color || ""
-                }`;
-                !root.edges.has(key) && root.edges.set(key, edge);
-              }
-            }
-
-            // connect visuals in context
-            const rel = artifact(source, target, root);
-            if (rel) {
-              if (rel.edge) {
-                ctx.edges.set(`${rel.source.id}->${rel.target.id}`, rel);
-                ctx.nodes.set(rel.source.id, rel.source);
-                ctx.nodes.set(rel.target.id, rel.target);
-              } else {
-                const src_ctx = root.nodes.get(
-                  rel.source.ctx.id
-                )! as ContextNode;
-                !src_ctx.refs.has(rel.source.id) &&
-                  src_ctx.refs.set(rel.source.id, new Set());
-                src_ctx.refs.get(rel.source.id)?.add(rel.target);
-              }
-            }
+        // connect actors and read models
+        if (statement.type === "command" && statement.actors) {
+          Object.entries(statement.actors).forEach(([id, projectors]) => {
+            const actor = { ...ctx.nodes.get(id)! }; // clone it!
+            addRef(source, actor);
+            projectors.forEach((id) => {
+              const projector = getNode(ctx, id, "projector");
+              projector && addRef(actor, projector);
+            });
           });
-      });
+        }
+
+        Object.entries(statement).forEach(([action, list]) => {
+          Array.isArray(list) &&
+            list.forEach((id: string) => {
+              const target = getNode(
+                ctx,
+                id,
+                rules[statement.type]![action as Action]!
+              );
+
+              // connect policies invoking commands
+              (source.visual === "policy" || source.visual === "process") &&
+                target.visual === "command" &&
+                addRef(target, source);
+
+              // connect contexts
+              if (ctx.color && source.ctx !== target.ctx) {
+                const edge = edgers.context(source, target, root) as Edge;
+                if (edge) {
+                  const key = `${edge.source.id}->${edge.target.id}-${
+                    edge.color || ""
+                  }`;
+                  !root.edges.has(key) && root.edges.set(key, edge);
+                }
+              }
+
+              // connect edges inside context
+              const edge = edger(source, target, root);
+              if (edge) {
+                ctx.edges.set(`${edge.source.id}->${edge.target.id}`, edge);
+                ctx.nodes.set(edge.source.id, edge.source);
+                ctx.nodes.set(edge.target.id, edge.target);
+              }
+            });
+        });
+      }
     });
   });
 

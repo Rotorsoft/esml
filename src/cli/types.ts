@@ -1,4 +1,4 @@
-import { Node, Schema, Visual } from "../artifacts";
+import type { Node, Schema, Visual } from "../types";
 
 export interface Arguments {
   [key: string]: string;

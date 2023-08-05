@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ScalarFieldTypes } from "./artifacts";
+import { ScalarFieldTypes } from "./types";
 
 const Pascal = /^[A-Z][A-Za-z0-9]+$/;
 const Camel = /^[a-z][A-Za-z0-9]+$/;
@@ -30,22 +30,8 @@ const Fields = z
   )
   .describe("A map of field names and types (scalar or other schemas)");
 
-const WithSchema = z
-  .object({
-    description: z.string().optional(),
-    base: z
-      .string()
-      .regex(Pascal, { message: "Invalid schema name. Use Pascal case!" })
-      .optional(),
-    requires: Fields.optional(),
-    optional: Fields.optional(),
-  })
-  .strict()
-  .describe("The schema of the artifact's state");
-
 const Schema = z
   .object({
-    type: z.literal("schema"),
     description: z.string().optional(),
     base: z
       .string()
@@ -55,19 +41,38 @@ const Schema = z
     optional: Fields.optional(),
   })
   .strict()
-  .describe(
-    "A schema with optional base schema, required, and optional fields"
-  );
+  .describe("A message or state schema");
 
-const Actor = z
+const Event = z
   .object({
-    type: z.literal("actor"),
+    type: z.literal("event"),
     description: z.string().optional(),
-    invokes: List,
-    reads: List,
+    schema: Schema.optional(),
   })
   .strict()
-  .describe("Actor artifact, can read projections and invoke commands");
+  .describe("An event");
+
+const Command = z
+  .object({
+    type: z.literal("command"),
+    description: z.string().optional(),
+    schema: Schema.optional(),
+    actors: z
+      .record(
+        z.string().regex(Pascal, {
+          message: "Invalid actor name. Use Pascal case!",
+        }),
+        z.array(
+          z.string().regex(Reference, {
+            message:
+              "Invalid projector name. Use [Context.]Projector in Pascal case!",
+          })
+        )
+      )
+      .optional(),
+  })
+  .strict()
+  .describe("A command, with actors that can read projections");
 
 const System = z
   .object({
@@ -85,7 +90,7 @@ const Aggregate = z
     description: z.string().optional(),
     handles: List,
     emits: List,
-    schema: WithSchema.optional(),
+    schema: Schema.optional(),
   })
   .strict()
   .describe(
@@ -112,7 +117,7 @@ const Process = z
     handles: List,
     invokes: List,
     reads: List,
-    schema: WithSchema.optional(),
+    schema: Schema.optional(),
   })
   .strict()
   .describe(
@@ -124,21 +129,36 @@ const Projector = z
     type: z.literal("projector"),
     description: z.string().optional(),
     handles: List,
-    schema: WithSchema.optional(),
+    schema: Schema.optional(),
   })
   .strict()
   .describe(
     "Projector artifact, can handle (project) events into a state (projection)"
   );
 
+const ObjectSchema = z
+  .object({
+    type: z.literal("schema"),
+    description: z.string().optional(),
+    base: z
+      .string()
+      .regex(Pascal, { message: "Invalid schema name. Use Pascal case!" })
+      .optional(),
+    requires: Fields.optional(),
+    optional: Fields.optional(),
+  })
+  .strict()
+  .describe("Object schemas can be used as base types or value objects");
+
 const Statement = z.union([
-  Schema,
-  Actor,
+  Command,
+  Event,
   System,
   Aggregate,
   Policy,
   Process,
   Projector,
+  ObjectSchema,
 ]);
 
 export const Grammar = z
@@ -157,4 +177,4 @@ export const Grammar = z
 
 export type Grammar = z.infer<typeof Grammar>;
 export type Statement = z.infer<typeof Statement>;
-export type Schema = z.infer<typeof WithSchema>;
+export type Schema = z.infer<typeof Schema>;

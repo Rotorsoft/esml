@@ -1,8 +1,8 @@
 import json5 from "json5";
 import path from "node:path";
-import { ContextNode, Visual } from "../artifacts";
 import { compile } from "../compiler";
 import { Grammar } from "../schema";
+import type { ContextNode, Visual } from "../types";
 import { createJestConfig, createPackageJson, createTsConfig } from "./configs";
 import { createSchemas, toDefault, toDefaultEvent, toName } from "./schemas";
 import {

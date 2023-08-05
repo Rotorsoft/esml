@@ -1,4 +1,4 @@
-import { Style, Node } from "../artifacts";
+import type { Style, Node } from "../types";
 
 export type SvgElementType = "g" | "path" | "rect" | "text" | "tspan";
 

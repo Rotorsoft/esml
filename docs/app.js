@@ -1,18 +1,6 @@
 // WolfDesk Ticket Service
 const wolfdesk = {
   TicketLifecycle: {
-    Customer: {
-      type: "actor",
-      description: "A customer of the service",
-      reads: ["Tickets"],
-      invokes: ["OpenTicket", "AddMessage", "RequestTicketEscalation"],
-    },
-    Agent: {
-      type: "actor",
-      description: "A customer service agent",
-      reads: ["Tickets"],
-      invokes: ["AddMessage", "CloseTicket"],
-    },
     Ticket: {
       type: "aggregate",
       description: "The main aggregate holding ticket core logic",
@@ -77,21 +65,18 @@ const wolfdesk = {
       type: "policy",
       description: "Assigns tickets to agents after opening",
       handles: ["TicketOpened"],
-      reads: ["Tickets", "Admin.Agents"],
       invokes: ["AssignTicket", "ReassignTicket"],
     },
     RequestEscalation: {
       type: "policy",
       description: "Handles ticket escalation requests",
       handles: ["TicketEscalationRequested"],
-      reads: ["Tickets", "Admin.Agents"],
       invokes: ["EscalateTicket", "CloseTicket"],
     },
     Closing: {
       type: "policy",
       description: "Closes tickets upon resolution",
       handles: ["TicketResolved"],
-      reads: ["Tickets"],
       invokes: ["CloseTicket"],
     },
     Body: {
@@ -104,20 +89,59 @@ const wolfdesk = {
       requires: { street: "string" },
     },
     OpenTicket: {
-      type: "schema",
-      description: "Command to open a new ticket",
-      requires: { title: "string" },
-      optional: { user: "uuid", description: "string" },
+      type: "command",
+      description: "Customers can open tickets",
+      actors: {
+        Customer: ["Tickets"],
+      },
+      schema: {
+        requires: { title: "string" },
+        optional: { user: "uuid", description: "string" },
+      },
+    },
+    AddMessage: {
+      type: "command",
+      description: "Customers and agents can exchange messages",
+      actors: {
+        Customer: ["Tickets"],
+        Agent: ["Tickets"],
+      },
+    },
+    RequestTicketEscalation: {
+      type: "command",
+      description: "Customers can request an escalation",
+      actors: {
+        Customer: ["Tickets"],
+      },
+    },
+    CloseTicket: {
+      type: "command",
+      description: "Agents and policies can close tickets",
+      actors: {
+        Agent: ["Tickets"],
+      },
     },
     TicketOpened: {
-      type: "schema",
+      type: "event",
       description: "Event recording when a ticket was opened",
-      requires: { title: "string", user: "uuid" },
+      schema: {
+        requires: { title: "string", user: "uuid" },
+      },
     },
     AssignTicket: {
-      type: "schema",
-      requires: { id: "string", agentId: "string" },
-      optional: { expires: "number" },
+      type: "command",
+      actors: {
+        Agent: ["Tickets"],
+      },
+      schema: {
+        requires: { id: "string", agentId: "string" },
+        optional: { expires: "number" },
+      },
+    },
+    BillingPolicy: {
+      type: "policy",
+      handles: ["TicketResolved"],
+      invokes: ["Billing.BillTenant", "Billing.AddTenant"],
     },
   },
   Messaging: {
@@ -125,7 +149,6 @@ const wolfdesk = {
       type: "process",
       description: "Delivers messages to recipients",
       handles: ["TicketLifecycle.MessageAdded"],
-      reads: ["TicketLifecycle.Tickets"],
       invokes: [
         "TicketLifecycle.MarkMessageDelivered",
         "TicketLifecycle.AcknowledgeMessage",
@@ -137,12 +160,6 @@ const wolfdesk = {
       type: "system",
       handles: ["BillTenant"],
       emits: ["TenantBilled"],
-    },
-    BillingPolicy: {
-      type: "policy",
-      handles: ["TicketLifecycle.TicketResolved"],
-      reads: ["TicketLifecycle.Tickets", "Admin.Tenants"],
-      invokes: ["BillTenant", "AddTenant"],
     },
   },
   Admin: {

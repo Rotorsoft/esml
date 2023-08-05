@@ -1,4 +1,10 @@
-import { ContextNode, Edge, Node, Style, isContextNode } from "../artifacts";
+import {
+  isContextNode,
+  type ContextNode,
+  type Edge,
+  type Node,
+  type Style,
+} from "../types";
 import {
   add,
   difference,
@@ -135,16 +141,16 @@ const renderEdge = (edge: Edge, g: Graphics) => {
 };
 
 const renderSimpleRef = (
-  target: Node,
+  node: Node,
   x: number,
   y: number,
   w: number,
   h: number,
   g: Graphics
 ) => {
-  g.group("").attr("fill", target.color);
+  g.group("").attr("fill", node.color);
   g.rect(x, y, w, h);
-  renderText(splitId(target.id), w, h, g, {
+  renderText(splitId(node.id), w, h, g, {
     fit: true,
     x: x + w / 2,
     y: y + h / 2,
@@ -155,20 +161,18 @@ const renderSimpleRef = (
 };
 
 const renderRef = (
-  ctx: ContextNode,
-  target: Node,
+  node: Node,
   x: number,
   y: number,
   w: number,
   h: number,
   g: Graphics
 ) => {
-  renderSimpleRef(target, x, y, w, h, g);
-  const actorRefs = ctx.refs.get(target.id);
+  renderSimpleRef(node, x, y, w, h, g);
   const hw = Math.ceil(w / 2);
   const hh = Math.ceil(h / 2);
-  actorRefs &&
-    [...actorRefs].forEach((target, i) =>
+  node.refs &&
+    [...node.refs].forEach((target, i) =>
       renderSimpleRef(target, x - hw + 4, y + i * (hh + 2) - 4, hw, hh, g)
     );
 };
@@ -198,34 +202,32 @@ const renderMultilineRef = (
 };
 
 const renderCommandRefs = (
-  ctx: ContextNode,
-  targets: Node[],
+  node: Node,
   x: number,
   y: number,
   w: number,
   h: number,
   g: Graphics
 ) => {
+  const targets = [...node.refs!];
   const th = Math.floor(h / targets.length);
   targets.forEach((target, i) =>
-    renderRef(ctx, target, x, y + i * (th + 2), w, th, g)
+    renderRef(target, x, y + i * (th + 2), w, th, g)
   );
 };
 
-const renderRefs = (ctx: ContextNode, g: Graphics, style: Style) => {
-  ctx.refs.forEach((targets, sourceId) => {
-    const source = ctx.nodes.get(sourceId)!;
-    if (source.visual === "actor") return; // don't render actors as nodes
-    const x = Math.floor(source.x! - source.width! / 2 - style.scale * 0.2);
-    const y = Math.floor(source.y! + source.height! * 0.4);
+const renderRefs = (node: Node, g: Graphics, style: Style) => {
+  if (node.refs && node.visual !== "actor") {
+    const x = Math.floor(node.x! - node.width! / 2 - style.scale * 0.2);
+    const y = Math.floor(node.y! + node.height! * 0.4);
     const w = Math.floor(style.scale);
     const h = Math.floor(style.scale / 2);
-    targets.size > 1
-      ? source.visual === "command"
-        ? renderCommandRefs(ctx, [...targets], x, y, w, h, g)
-        : renderMultilineRef([...targets], x, y, w, h, g)
-      : renderRef(ctx, [...targets][0], x, y, w, h, g);
-  });
+    node.refs?.size > 1
+      ? node.visual === "command"
+        ? renderCommandRefs(node, x, y, w, h, g)
+        : renderMultilineRef([...node.refs], x, y, w, h, g)
+      : renderRef([...node.refs][0], x, y, w, h, g);
+  }
 };
 
 const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
@@ -249,7 +251,7 @@ const context: Renderable = (ctx: Node, g: Graphics, style: Style) => {
         e.color && renderEdge({ ...e, source: ctx.nodes.get(e.source.id)! }, g)
     );
     ctx.nodes.forEach((n) => n.color && renderNode(n, g, style));
-    renderRefs(ctx, g, style);
+    ctx.nodes.forEach((n) => n.refs && renderRefs(n, g, style));
     g.ungroup();
   }
 };

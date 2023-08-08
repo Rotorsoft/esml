@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { compile } from "./compiler";
 import { layout, render } from "./graphics";
 import { Grammar } from "./schema";
-import type { ContextNode, Field, Style, Visual } from "./types";
+import type { ContextNode, Node, Style } from "./types";
 
 export class Json5Error extends Error {
   constructor(
@@ -25,19 +25,6 @@ const FONTS: { [key in Font]: string } = {
   handlee: "Handlee",
 };
 const DEFAULT_FONT = "inconsolata";
-
-export type Node = {
-  index: number;
-  name: string;
-  visual: Visual;
-  ctx: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fields: Field[];
-  description?: string;
-};
 
 export const esml = (
   code: string,
@@ -72,23 +59,7 @@ export const esml = (
       svg,
       width: root.width,
       height: root.height,
-      nodes: nodes.map(
-        ({ index, name, visual, ctx, x, y, width, height, description }) => {
-          const schema = ctx.schemas.get(name);
-          return {
-            index,
-            name,
-            visual,
-            ctx: ctx.name,
-            x,
-            y,
-            width,
-            height,
-            fields: schema ? [...schema.values()] : [],
-            description: description ?? schema?.description,
-          } as Node;
-        }
-      ),
+      nodes,
     };
   } catch (error: any) {
     if ("lineNumber" in error && "columnNumber" in error)

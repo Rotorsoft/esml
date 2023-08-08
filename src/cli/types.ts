@@ -1,13 +1,10 @@
-import type { Node, Schema, Visual } from "../types";
+import type { Node } from "../types";
 
 export interface Arguments {
   [key: string]: string;
 }
 
-export type Art = {
-  name: string;
-  type: Visual;
-  schema?: Schema;
-  in: Array<Node & { schema?: Schema }>;
-  out: Array<Node & { schema?: Schema }>;
+export type Art = Node & {
+  in: Array<Node>;
+  out: Array<Node>;
 };

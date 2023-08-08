@@ -40,10 +40,7 @@ const system: Edger = (source, target) =>
 const policy: Edger = (source, target) =>
   target.visual === "event"
     ? {
-        source:
-          source.ctx === target.ctx
-            ? target
-            : { ...target, name: target.name + "*" },
+        source: source.ctx === target.ctx ? target : { ...target },
         target: source,
         color: COLORS.event,
         arrow: false,
@@ -88,10 +85,7 @@ const edgers: { [key in Visual]: Edger } = {
   policy: policy,
   process: policy,
   projector: (source, target) => ({
-    source:
-      source.ctx === target.ctx
-        ? target
-        : { ...target, name: target.name + "*" },
+    source: source.ctx === target.ctx ? target : { ...target },
     target: source,
     color: COLORS.event,
     arrow: false,
@@ -117,6 +111,7 @@ const addSchema = (
   { requires, optional, description }: schema.Schema
 ) => {
   const schema = ctx.schemas.get(name) ?? new Schema(name, description);
+  if (description && !schema.description) schema.description = description;
   ctx.schemas.set(name, schema);
 
   const append = (name: string, type: string, required: boolean) => {
@@ -141,11 +136,7 @@ const addSchema = (
 const addBaseSchema = (ctx: ContextNode, name: string, base: string) => {
   const schema = ctx.schemas.get(name);
   const baseSchema = ctx.schemas.get(base);
-  if (schema && baseSchema) {
-    baseSchema.forEach(
-      (value, key) => !schema.has(key) && schema.set(key, value)
-    );
-  }
+  schema && baseSchema && (schema.base = baseSchema);
 };
 
 export const compile = (model: schema.Grammar): ContextNode => {
@@ -225,8 +216,9 @@ export const compile = (model: schema.Grammar): ContextNode => {
     }
   };
 
+  // compile statements
   Object.entries(model).forEach(([name, context]) => {
-    const ctx = newContext(root, name);
+    const ctx = (root.nodes.get(name) as ContextNode) ?? newContext(root, name);
     root.nodes.set(name, ctx);
     Object.entries(context).forEach(([name, statement]) =>
       addStmt(ctx, name, statement)
@@ -254,7 +246,10 @@ export const compile = (model: schema.Grammar): ContextNode => {
             addRef(source, actor);
             projectors.forEach((name) => {
               const projector = getNode(ctx, name, "projector");
-              projector && addRef(actor, projector);
+              if (projector && projector.visual === "projector") {
+                addRef(actor, projector);
+                addRel(projector, source);
+              }
             });
           });
         }

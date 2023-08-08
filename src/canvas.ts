@@ -1,5 +1,6 @@
-import { esml, Node } from "./esml";
-import { debounce, EventEmitter } from "./utils";
+import { esml } from "./esml";
+import type { ContextNode, Node, Schema } from "./types";
+import { EventEmitter, debounce } from "./utils";
 
 const MIN_X = 0,
   MIN_Y = 0;
@@ -20,6 +21,28 @@ type State = {
   x?: number;
   y?: number;
   zoom?: number;
+};
+
+const renderSchema = (ctx: ContextNode, schema?: Schema): string => {
+  return schema
+    ? renderSchema(ctx, schema.base).concat(`<div class="schema">
+  ${[...schema.values()]
+    .map((field) => {
+      const name =
+        field.name.length > 20
+          ? field.name.substring(0, 20) + "..."
+          : field.name;
+      const nel = field.required ? "b" : "span";
+      const tel = typeof field.type === "object" ? "i" : "span";
+      return `<div class="field"><${nel}>${name}</${nel}><${tel}>${
+        field.type
+      }</${tel}>
+      </div>
+      ${tel === "i" ? renderSchema(ctx, field.type as Schema) : ""}`;
+    })
+    .join("")}
+</div>`)
+    : "";
 };
 
 export declare interface Canvas {
@@ -173,6 +196,13 @@ export class Canvas extends EventEmitter {
     }
   }
 
+  private renderNodeDetails(node: Node, schema?: Schema) {
+    return `<div class="name">${node.name}</div>
+    <div class="description">${node.description || ""}</div>
+    ${renderSchema(node.ctx, schema)}
+    `;
+  }
+
   private addNodes(nodes: Node[]) {
     const fadable = Object.fromEntries(
       nodes
@@ -227,25 +257,11 @@ export class Canvas extends EventEmitter {
           g.addEventListener("mouseleave", handleMouseLeave);
         }
         // details
-        if (node.fields.length || node.description) {
+        const schema = node.ctx.schemas.get(node.name);
+        if (node.description || schema) {
           const el = this.document.createElement("div");
           el.id = `node-${g.id}`;
-          el.innerHTML = `<div class="name">${node.name}</div>
-        <div class="description">${node.description || ""}</div>
-        <table class="table table-sm">
-          ${node.fields
-            .map((f) => {
-              const name =
-                f.name.length > 20 ? f.name.substring(0, 20) + "..." : f.name;
-              const tel = f.required ? "th" : "td";
-              return `<tr><${tel}>${name}</${tel}><td>${f.type}</td></tr>`;
-            })
-            .join("")}
-            ${
-              node.fields.length > 20 ? "<tr><td colspan='2'>...</td></tr>" : ""
-            }
-        </table>
-        `;
+          el.innerHTML = this.renderNodeDetails(node, schema);
           this.nodes?.appendChild(el);
         }
       }

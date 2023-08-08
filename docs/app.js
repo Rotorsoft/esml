@@ -82,6 +82,12 @@ const wolfdesk = {
       invokes: ["CloseTicket"],
       useRefs: true,
     },
+    Messaging: {
+      type: "policy",
+      description: "Flags delivered messages",
+      handles: ["Messaging.EmailSent"],
+      invokes: ["MarkMessageDelivered"],
+    },
     Body: {
       type: "schema",
       requires: { id: "number" },
@@ -128,7 +134,8 @@ const wolfdesk = {
       type: "event",
       description: "Event recording when a ticket was opened",
       schema: {
-        requires: { title: "string", user: "uuid" },
+        base: "OpenTicket",
+        optional: { sysmsg: "string", sysbody: "Body" },
       },
     },
     AssignTicket: {
@@ -141,25 +148,27 @@ const wolfdesk = {
         optional: { expires: "number" },
       },
     },
-    BillingPolicy: {
-      type: "policy",
-      handles: ["TicketResolved"],
-      invokes: ["Billing.BillTenant", "Billing.AddTenant"],
-      useRefs: true,
-    },
   },
   Messaging: {
     Messaging: {
       type: "process",
       description: "Delivers messages to recipients",
       handles: ["TicketLifecycle.MessageAdded"],
-      invokes: [
-        "TicketLifecycle.MarkMessageDelivered",
-        "TicketLifecycle.AcknowledgeMessage",
-      ],
+      invokes: ["SendEmail"],
+    },
+    Email: {
+      type: "system",
+      description: "Email system",
+      handles: ["SendEmail"],
+      emits: ["EmailSent"],
     },
   },
   Billing: {
+    BillingPolicy: {
+      type: "policy",
+      handles: ["TicketLifecycle.TicketResolved"],
+      invokes: ["BillTenant"],
+    },
     Billing: {
       type: "system",
       handles: ["BillTenant"],
@@ -172,7 +181,11 @@ const wolfdesk = {
       handles: ["AddTenant"],
       emits: ["TenantAdded"],
     },
-    Agent: { type: "aggregate", handles: ["AddAgent"], emits: ["AgentAdded"] },
+    Agent: {
+      type: "aggregate",
+      handles: ["AddAgent"],
+      emits: ["AgentAdded"],
+    },
     Product: {
       type: "aggregate",
       handles: ["AddProduct"],

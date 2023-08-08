@@ -63,9 +63,28 @@ export class Field {
 }
 
 export class Schema extends Map<string, Field> {
-  constructor(readonly name: string, readonly description?: string) {
+  constructor(readonly name: string, description?: string) {
     super();
+    this._base = undefined;
+    this._description = description;
   }
+
+  private _base: Schema | undefined;
+  public set base(v: Schema) {
+    this._base = v;
+  }
+  public get base(): Schema | undefined {
+    return this._base;
+  }
+
+  private _description: string | undefined;
+  public set description(v: string) {
+    this._description = v;
+  }
+  public get description(): string | undefined {
+    return this._description;
+  }
+
   toString() {
     return this.name;
   }

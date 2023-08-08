@@ -3,11 +3,10 @@ import {
   ScalarFieldTypes,
   type FieldType,
   type Node,
-  type Schema,
+  Schema,
+  Visual,
 } from "../types";
 import type { Art } from "./types";
-
-export const toName = (node: Node) => node.name.replace("*", "");
 
 function toZodType(type: FieldType, required = true): string {
   let t: string;
@@ -42,7 +41,7 @@ function toZod(schema?: Schema, indent = 3): string {
           "})"
         )
       : "})"
-  }`;
+  }${schema?.description ? `.describe("${schema.description}")` : ""}`;
 }
 
 function toDefaultValue(type: FieldType): string {
@@ -65,7 +64,7 @@ function toDefaultValue(type: FieldType): string {
 export function toDefault(schema?: Schema): string {
   return `{${
     schema
-      ? [...schema.values()]
+      ? [...(schema.base?.values() ?? []), ...schema.values()]
           .map((f) => `${f.name}: ${toDefaultValue(f.type)}`)
           .join(", ")
       : ""
@@ -73,27 +72,18 @@ export function toDefault(schema?: Schema): string {
 }
 
 export function toDefaultEvent(event: Node): string {
-  return `{ name: "${toName(
-    event
-  )}", id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} }, data: ${toDefault(
+  return `{ name: "${
+    event.name
+  }", id: 0, stream: "", version: 0, created: new Date(), metadata: { correlation: "", causation: {} }, data: ${toDefault(
     event.ctx.schemas.get(event.name)
   )} }`;
 }
 
 function toSchema(art: Art): string | undefined {
-  const state = art.schema && toZod(art.schema, 2);
-  const inputs =
-    art.in &&
-    art.in
-      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.name))}`)
-      .join(",\n");
-  const outputs =
-    art.out &&
-    art.out
-      .map((v) => `    ${toName(v)}: ${toZod(v.ctx.schemas.get(v.name))}`)
-      .join(",\n");
+  const inputs = art.in.map((v) => `    ${v.name}`).join(",\n");
+  const outputs = art.out.map((v) => `    ${v.name}`).join(",\n");
 
-  switch (art.type) {
+  switch (art.visual) {
     case "system":
       return `
   commands: {
@@ -105,7 +95,7 @@ ${outputs}
 
     case "aggregate":
       return `
-  state: ${state || "z.object({})"},
+  state: ${art.name},
   commands: {
 ${inputs} 
   },
@@ -124,7 +114,7 @@ ${inputs}
 
     case "process":
       return `
-  state: ${state || "z.object({})"},
+  state: ${art.name},
   commands: {
 ${outputs} 
   },
@@ -134,44 +124,79 @@ ${inputs}
 
     case "projector":
       return `
-  state: ${state || "z.object({ id: z.string() })"},
+  state: ${art.name},
   events: {
 ${inputs} 
   },`;
   }
 }
 
-export function createSchemas(art: Art): Record<string, string> {
+const withState: Visual[] = ["aggregate", "process", "projector"];
+
+export function createSchemas(art: Art): {
+  map: string;
+  schemas: Record<string, string>;
+} {
   const schemas: Record<string, string> = {};
 
-  const refschemas: string[] = [];
-  [
-    art.schema,
-    ...art.in?.map((v) => v.ctx.schemas.get(v.name)),
-    ...art.out?.map((v) => v.ctx.schemas.get(v.name)),
-  ]
-    .filter(Boolean)
-    .forEach((sch) => {
-      sch!.forEach((field) => {
-        if (!ScalarFieldTypes.includes(field.type as any)) {
-          const refschema = field.type as Schema;
-          refschemas.push(refschema.toString());
-          schemas[refschema.toString()] = `import { z } from "zod";
-            
-export const ${refschema.toString()} = ${toZod(refschema, 1)}
-        `;
-        }
-      });
-    });
+  const addSchema = (schema: Schema) => {
+    const name = schema.toString();
+    console.log("... schema", name);
 
+    let content = toZod(schema, 1);
+    const refs: string[] = [];
+
+    if (schema.base) {
+      refs.push(schema.base.toString());
+      addSchema(schema.base);
+      content = `${schema.base.toString()}.and(${content})`;
+    }
+    schema.forEach((field) => {
+      if (!ScalarFieldTypes.includes(field.type as any)) {
+        const ref = field.type as Schema;
+        refs.push(ref.toString());
+        addSchema(ref);
+      }
+    });
+    const imports = refs
+      .sort()
+      .map((schema) => `import { ${schema} } from "./${schema}.schema";`)
+      .join("\n");
+
+    schemas[name] = `import { z } from "zod";
+${imports.length ? `${imports}\n` : ""}
+export const ${name} = ${content}
+  `;
+  };
+
+  // collect schemas
+  let state = art.ctx.schemas.get(art.name);
+  if (withState.includes(art.visual) && !state) {
+    state = new Schema(art.name);
+    if (art.visual === "projector")
+      state.set("id", { name: "id", type: "string", required: true });
+  }
+  const artSchemas = [
+    state,
+    ...art.in.map((v) => v.ctx.schemas.get(v.name) ?? new Schema(v.name)),
+    ...art.out.map((v) => v.ctx.schemas.get(v.name) ?? new Schema(v.name)),
+  ].filter(Boolean);
+  artSchemas.forEach((schema) => addSchema(schema!));
+
+  // fake ouput schema for processes
   const outputSchema =
-    art.type === "process" &&
+    art.visual === "process" &&
     `export const ${art.name}OutputSchema = {
   TodoOutputEvents: z.object({}),
 };`;
 
-  schemas[art.name] = `import { z } from "zod";
-${refschemas.map((r) => `import { ${r} } from "./${r}.schema";`).join("\n")}  
+  // collect art schemas in artSchemas file, with internal refs
+  const map = `import { z } from "zod";
+${artSchemas
+  .map((schema) => schema!.name)
+  .sort()
+  .map((name) => `import { ${name} } from "./${name}.schema";`)
+  .join("\n")}  
     
 export const ${art.name}Schemas = {${toSchema(art)}
 };
@@ -179,5 +204,5 @@ export const ${art.name}Schemas = {${toSchema(art)}
 ${outputSchema || ""}
 `;
 
-  return schemas;
+  return { map, schemas };
 }

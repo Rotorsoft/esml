@@ -1,6 +1,5 @@
-// WolfDesk Ticket System
+// WolfDesk Ticket Service
 {
-  // Core Ticket Context
   TicketLifecycle: {
     Ticket: {
       type: "aggregate",
@@ -67,74 +66,117 @@
       description: "Assigns tickets to agents after opening",
       handles: ["TicketOpened"],
       invokes: ["AssignTicket", "ReassignTicket"],
+      useRefs: true,
     },
     RequestEscalation: {
       type: "policy",
       description: "Handles ticket escalation requests",
       handles: ["TicketEscalationRequested"],
       invokes: ["EscalateTicket", "CloseTicket"],
+      useRefs: true,
     },
     Closing: {
       type: "policy",
       description: "Closes tickets upon resolution",
       handles: ["TicketResolved"],
       invokes: ["CloseTicket"],
+      useRefs: true,
+    },
+    Messaging: {
+      type: "policy",
+      description: "Flags delivered messages",
+      handles: ["Messaging.EmailSent"],
+      invokes: ["MarkMessageDelivered"],
     },
     Body: {
       type: "schema",
+      description: "The body of a message",
       requires: { id: "number" },
       optional: { description: "string" },
     },
     Address: {
       type: "schema",
+      description: "Address value object",
       requires: { street: "string" },
     },
     OpenTicket: {
-      type: "schema",
-      description: "Command to open a new ticket",
-      requires: { title: "string" },
-      optional: { user: "uuid", description: "string" },
+      type: "command",
+      description: "Customers can open tickets",
+      actors: {
+        Customer: ["Tickets"],
+      },
+      schema: {
+        requires: { title: "string" },
+        optional: { user: "uuid", description: "string" },
+      },
+    },
+    AddMessage: {
+      type: "command",
+      description: "Customers and agents can exchange messages",
+      actors: {
+        Customer: ["Tickets"],
+        Agent: ["Tickets"],
+      },
+    },
+    RequestTicketEscalation: {
+      type: "command",
+      description: "Customers can request an escalation",
+      actors: {
+        Customer: ["Tickets"],
+      },
+    },
+    CloseTicket: {
+      type: "command",
+      description: "Agents and policies can close tickets",
+      actors: {
+        Agent: ["Tickets"],
+      },
     },
     TicketOpened: {
-      type: "schema",
+      type: "event",
       description: "Event recording when a ticket was opened",
-      requires: { title: "string", user: "uuid" },
+      schema: {
+        base: "OpenTicket",
+        optional: { sysmsg: "string", sysbody: "Body" },
+      },
     },
     AssignTicket: {
-      type: "schema",
-      requires: { id: "string", agentId: "string" },
-      optional: { expires: "number" },
+      type: "command",
+      actors: {
+        Agent: ["Tickets"],
+      },
+      schema: {
+        requires: { id: "string", agentId: "string" },
+        optional: { expires: "number" },
+      },
     },
   },
-
-  // Messaging Context
   Messaging: {
     Messaging: {
       type: "process",
       description: "Delivers messages to recipients",
       handles: ["TicketLifecycle.MessageAdded"],
-      invokes: [
-        "TicketLifecycle.MarkMessageDelivered",
-        "TicketLifecycle.AcknowledgeMessage",
-      ],
+      invokes: ["SendEmail"],
+    },
+    Email: {
+      type: "system",
+      description: "Email system",
+      handles: ["SendEmail"],
+      emits: ["EmailSent"],
     },
   },
-
-  // Billing Context
   Billing: {
+    BillingPolicy: {
+      type: "policy",
+      handles: ["TicketLifecycle.TicketResolved"],
+      invokes: ["BillTenant"],
+    },
     Billing: {
       type: "system",
       handles: ["BillTenant"],
       emits: ["TenantBilled"],
     },
-    BillingPolicy: {
-      type: "policy",
-      handles: ["TicketLifecycle.TicketResolved"],
-      invokes: ["BillTenant", "AddTenant"],
-    },
   },
-
-  // Admin Context
   Admin: {
     Tenant: {
       type: "aggregate",

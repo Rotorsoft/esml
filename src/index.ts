@@ -1,5 +1,5 @@
 import { Canvas } from "./canvas";
-import { esml, Node } from "./esml";
+import { esml } from "./esml";
 import { EventEmitter, debounce } from "./utils";
 
-export { Canvas, EventEmitter, debounce, esml, Node };
+export { Canvas, EventEmitter, debounce, esml };

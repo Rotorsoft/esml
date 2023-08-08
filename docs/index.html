@@ -131,13 +131,25 @@
         padding: 2px;
       }
       #details .description {
-        font-size: 10px;
+        font-size: 12px;
         font-style: italic;
         padding-bottom: 8px;
+        text-align: center;
       }
-      #details .table {
+      #details .schema {
         font-family: monospace;
         font-size: 10px;
+        display: flex;
+        flex-direction: column;
+        padding: 0 10px 0 10px;
+        margin: 0;
+      }
+      #details .field {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        border-top: solid #dedede 1px;
+        padding: 2px 0 2px 0;
       }
       g > rect,
       g > text {

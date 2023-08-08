@@ -50,15 +50,15 @@
                       "propertyNames": {
                         "pattern": "^[a-z][A-Za-z0-9]+$"
                       },
-                      "description": "A map of field names and types (scalar or other schemas)"
+                      "description": "A map of field names and types (scalars or references to internal schemas)"
                     },
                     "optional": {
                       "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema/properties/requires",
-                      "description": "A map of field names and types (scalar or other schemas)"
+                      "description": "A map of field names and types (scalars or references to internal schemas)"
                     }
                   },
                   "additionalProperties": false,
-                  "description": "A message or state schema"
+                  "description": "The data schema of internal messages or artifact states"
                 },
                 "actors": {
                   "type": "object",
@@ -92,7 +92,7 @@
                 },
                 "schema": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema",
-                  "description": "A message or state schema"
+                  "description": "The data schema of internal messages or artifact states"
                 }
               },
               "required": [
@@ -115,12 +115,17 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "pattern": "^([A-Z][A-Za-z0-9]+)(\\.[A-Z][A-Za-z0-9]*){0,1}$"
+                    "pattern": "^[A-Z][A-Za-z0-9]+$"
                   },
-                  "description": "A list of references to internal or external artifacts or messages"
+                  "description": "A list of references to internal commands"
                 },
                 "emits": {
-                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^([A-Z][A-Za-z0-9]+)(\\.[A-Z][A-Za-z0-9]*){0,1}$"
+                  },
+                  "description": "A list of references to internal or external events"
                 }
               },
               "required": [
@@ -143,11 +148,11 @@
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
                 },
                 "emits": {
-                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/emits"
                 },
                 "schema": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema",
-                  "description": "A message or state schema"
+                  "description": "The data schema of internal messages or artifact states"
                 }
               },
               "required": [
@@ -167,7 +172,7 @@
                   "type": "string"
                 },
                 "handles": {
-                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/emits"
                 },
                 "invokes": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
@@ -194,14 +199,14 @@
                   "type": "string"
                 },
                 "handles": {
-                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/emits"
                 },
                 "invokes": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
                 },
                 "schema": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema",
-                  "description": "A message or state schema"
+                  "description": "The data schema of internal messages or artifact states"
                 },
                 "useRefs": {
                   "type": "boolean",
@@ -225,11 +230,11 @@
                   "type": "string"
                 },
                 "handles": {
-                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/handles"
+                  "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/2/properties/emits"
                 },
                 "schema": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema",
-                  "description": "A message or state schema"
+                  "description": "The data schema of internal messages or artifact states"
                 }
               },
               "required": [
@@ -254,11 +259,11 @@
                 },
                 "requires": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema/properties/requires",
-                  "description": "A map of field names and types (scalar or other schemas)"
+                  "description": "A map of field names and types (scalars or references to internal schemas)"
                 },
                 "optional": {
                   "$ref": "#/definitions/esml/additionalProperties/additionalProperties/anyOf/0/properties/schema/properties/requires",
-                  "description": "A map of field names and types (scalar or other schemas)"
+                  "description": "A map of field names and types (scalars or references to internal schemas)"
                 }
               },
               "required": [

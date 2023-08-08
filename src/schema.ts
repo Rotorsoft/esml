@@ -5,17 +5,23 @@ const Pascal = /^[A-Z][A-Za-z0-9]+$/;
 const Camel = /^[a-z][A-Za-z0-9]+$/;
 const Reference = /^([A-Z][A-Za-z0-9]+)(\.[A-Z][A-Za-z0-9]*){0,1}$/;
 
-const List = z
+const CommandList = z
   .array(
-    z.string().regex(Reference, {
-      message:
-        "Invalid reference name. Use [Context.]Identifier in Pascal case!",
+    z.string().regex(Pascal, {
+      message: "Invalid command name. Use Pascal case!",
     })
   )
   .optional()
-  .describe(
-    "A list of references to internal or external artifacts or messages"
-  );
+  .describe("A list of references to internal commands");
+
+const EventList = z
+  .array(
+    z.string().regex(Reference, {
+      message: "Invalid event name. Use [Context.]Name in Pascal case!",
+    })
+  )
+  .optional()
+  .describe("A list of references to internal or external events");
 
 const Fields = z
   .record(
@@ -28,7 +34,9 @@ const Fields = z
       })
     )
   )
-  .describe("A map of field names and types (scalar or other schemas)");
+  .describe(
+    "A map of field names and types (scalars or references to internal schemas)"
+  );
 
 const Schema = z
   .object({
@@ -41,7 +49,7 @@ const Schema = z
     optional: Fields.optional(),
   })
   .strict()
-  .describe("A message or state schema");
+  .describe("The data schema of internal messages or artifact states");
 
 const Event = z
   .object({
@@ -78,8 +86,8 @@ const System = z
   .object({
     type: z.literal("system"),
     description: z.string().optional(),
-    handles: List,
-    emits: List,
+    handles: CommandList,
+    emits: EventList,
   })
   .strict()
   .describe("System artifact, can handle commands and emit events");
@@ -88,8 +96,8 @@ const Aggregate = z
   .object({
     type: z.literal("aggregate"),
     description: z.string().optional(),
-    handles: List,
-    emits: List,
+    handles: CommandList,
+    emits: EventList,
     schema: Schema.optional(),
   })
   .strict()
@@ -101,8 +109,8 @@ const Policy = z
   .object({
     type: z.literal("policy"),
     description: z.string().optional(),
-    handles: List,
-    invokes: List,
+    handles: EventList,
+    invokes: CommandList,
     useRefs: z
       .boolean()
       .optional()
@@ -117,8 +125,8 @@ const Process = z
   .object({
     type: z.literal("process"),
     description: z.string().optional(),
-    handles: List,
-    invokes: List,
+    handles: EventList,
+    invokes: CommandList,
     schema: Schema.optional(),
     useRefs: z
       .boolean()
@@ -134,7 +142,7 @@ const Projector = z
   .object({
     type: z.literal("projector"),
     description: z.string().optional(),
-    handles: List,
+    handles: EventList,
     schema: Schema.optional(),
   })
   .strict()

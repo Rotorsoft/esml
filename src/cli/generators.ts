@@ -281,7 +281,7 @@ ${art.in
         const id = stream; // TBD
         // load current state?
         const state = map.records.get(id) ?? (await client().read(${art.name}, id)).at(0)?.state ?? { id };
-        const patch = [{}]; // TBD
+        const patches = [{}]; // TBD
         return patches; // TBD
       }`
   )

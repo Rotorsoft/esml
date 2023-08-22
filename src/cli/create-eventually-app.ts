@@ -11,30 +11,32 @@ import {
 import { generateContexts } from "./generators";
 import { createEnv, createGitIgnore, createTsConfig } from "./configs";
 
-const { project, dir, src } = parseArguments(process.argv);
-if (!project) {
-  console.error("Please provide a project name using --project=name");
+const use =
+  "Use: npx create-eventually-app --src=path-to-model --dir=path-to-target --project=project-name";
+
+const { dir, src, project } = parseArguments(process.argv);
+if (!(dir && src && project)) {
+  console.log(use);
   process.exit(1);
 }
 
-const base = resolvePath(dir);
-console.log("base directory:", base);
-const pdir = path.join(base, project);
-console.log("project directory:", pdir);
-const spath = src ? resolvePath(src) : path.join(base, `${project}.json5`);
-console.log("source path:", spath);
+const srcPath = resolvePath(src);
+console.log("Source path:", srcPath);
+const dirPath = resolvePath(dir);
+const projectPath = path.join(dirPath, project);
+console.log("Project path:", projectPath);
 
-const code = loadFile(spath);
+const code = loadFile(srcPath);
 if (!code) {
-  console.error("Model not found at:", spath);
+  console.error("Model not found at:", srcPath);
   process.exit(1);
 }
 
-createDirectory(pdir);
-createTsConfig(pdir);
-createEnv(pdir);
-createGitIgnore(pdir);
-generateContexts(pdir, project, code);
-executeCommand(`cd ${pdir} && npm install`);
+createDirectory(projectPath);
+createTsConfig(projectPath);
+createEnv(projectPath);
+createGitIgnore(projectPath);
+generateContexts(projectPath, project, code);
+executeCommand(`cd ${projectPath} && npm install`);
 
 console.log(`Successfully created eventually project '${project}' 🚀`);

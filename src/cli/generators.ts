@@ -279,14 +279,10 @@ ${art.in
     (event) =>
       `    ${event.name}: async ({ stream, data }, map) => {
         const id = stream; // TBD
-
-        let state = { id };
-        if (!map.has(id))
-          await client().read(${art.name}, id, (record) => state = record.state);
-        else
-          state = map.get(id)!;
-        
-        return [{ ...state, id }]; // TBD
+        // load current state?
+        const state = map.records.get(id) ?? (await client().read(${art.name}, id)).at(0)?.state ?? { id };
+        const patch = [{}]; // TBD
+        return patches; // TBD
       }`
   )
   .join(",\n")} 
